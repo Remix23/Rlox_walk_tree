@@ -2,19 +2,24 @@ use std::env;
 use std::env::current_dir;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 
-use scanner::ScanTokens;
+use expr::Expr;
+use scanner::{ScanTokens, TokenType};
 
 // relative modules
 use crate::scanner::{Scanner, Token};
 
 pub mod scanner;
 pub mod error_handler;
+pub mod expr;
+pub mod parser;
+pub mod traits;
 
 struct Lox {
     had_error: bool
 }
+
 
 fn run (s : String, rlox : &Lox) {
     let mut s = Scanner::new(s);
@@ -72,6 +77,36 @@ fn main() {
         had_error: false
     };
 
+    // test AST
+
+    let expr = Expr::Binary(expr::Binary {
+        left: Box::new(Expr::Unary(expr::Unary {
+            operator: Token {
+                token_type: TokenType::Minus,
+                lexeme: "-".to_string(),
+                literal: scanner::LiteralType::Nil,
+                line: 1,
+            },
+            right: Box::new(Expr::Literal(expr::Literal {
+                value: scanner::LiteralType::Number(123.0),
+            })),
+        })),
+        operator: Token {
+            token_type: TokenType::Star,
+            lexeme: "*".to_string(),
+            literal: scanner::LiteralType::Nil,
+            line: 1,
+        },
+        right: Box::new(Expr::Grouping(expr::Grouping {
+            expression: Box::new(Expr::Literal(expr::Literal {
+                value: scanner::LiteralType::Nil,
+            })),
+        })),
+    });
+
+    let mut ast_printer = parser::AstPrinter {};
+    ast_printer.print(&expr);
+    
     let n_of_arguments = args.len();
     if n_of_arguments > 2 {
         println!("Usage: rlox <file_name>");

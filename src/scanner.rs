@@ -1,13 +1,12 @@
-use core::num;
 use::std::fmt::Display;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
+use std::{collections::HashMap};
 
 use crate::error_handler::err;
 
 
 #[derive(Debug, Clone)]
-enum TokenType {
+pub enum TokenType {
     // Single char
     LeftParen, RightParan, LeftBrac, RightBrace, Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
 
@@ -22,6 +21,25 @@ enum TokenType {
 
     // End of file
     EOF,
+}
+
+#[derive(Debug, Clone)]
+pub enum LiteralType {
+    String(String),
+    Number(f64),
+    Bool (bool),
+    Nil,
+}
+
+impl Display for LiteralType {
+    fn fmt (&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            LiteralType::String(s) => write!(f, "{}", s),
+            LiteralType::Number(n) => write!(f, "{}", n),
+            LiteralType::Bool(b) => write!(f, "{}", b),
+            LiteralType::Nil => write!(f, "nil"),
+        }
+    }
 }
 
 // ** Keywords
@@ -50,10 +68,10 @@ impl Copy for TokenType {}
 
 #[derive(Debug, Clone)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    literal: String,
-    line: i32,
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub literal: LiteralType,
+    pub line: i32,
 }
 
 impl Display for Token {
@@ -110,7 +128,8 @@ fn scan_token (scanner : &mut Scanner) -> bool {
         '<' => if check_next(scanner, '=') { _add_token(scanner, TokenType::LessEqual) } else { _add_token(scanner, TokenType::Less) },
         '>' => if check_next(scanner, '=') { _add_token(scanner, TokenType::GreaterEqual) } else { _add_token(scanner, TokenType::Greater) },
  
-        // comments
+        // comments 
+        // TODO: add support for block comments
         '/' => if check_next(scanner, '/') {
             while peek(scanner) != '\n' && !is_at_end(scanner) {
                 advance(scanner);
@@ -141,10 +160,10 @@ fn scan_token (scanner : &mut Scanner) -> bool {
 }
 
 fn _add_token (scanner : &mut Scanner, token_type : TokenType)  {
-    return add_token(scanner, token_type, "".to_string());
+    return add_token(scanner, token_type, LiteralType::Nil);
 }
 
-fn add_token (scanner : &mut Scanner, token_type : TokenType, literal : String) {
+fn add_token (scanner : &mut Scanner, token_type : TokenType, literal : LiteralType) {
     let chrs = scanner.source.chars()
         .skip(scanner.start as usize)
         .take((scanner.current - scanner.start) as usize)
@@ -190,7 +209,7 @@ fn peek_next (scanner : &mut Scanner) -> char {
 // helper functions to get parsing Literals
 fn string (scanner : &mut Scanner) {
     while peek(scanner) != '"' && !is_at_end(scanner) {
-        if (peek(scanner) == '\n') {
+        if peek(scanner) == '\n' {
             scanner.line += 1;
         }
         advance(scanner);
@@ -206,13 +225,13 @@ fn string (scanner : &mut Scanner) {
         .skip(scanner.start as usize + 1)
         .take((scanner.current - scanner.start - 2) as usize)
         .collect::<String>();
-    add_token(scanner, TokenType::String, value);
+    add_token(scanner, TokenType::String, LiteralType::String(value));
 }
 
 // * Supports trailing dot
 fn number (scanner : &mut Scanner) {
     let mut dot_offset = 0;
-    while (peek(scanner).is_digit(10)) {
+    while peek(scanner).is_digit(10) {
         advance(scanner);
     }
     let int_part = scanner.source.chars()
@@ -224,11 +243,11 @@ fn number (scanner : &mut Scanner) {
         advance(scanner);
         dot_offset = scanner.current;
     } else {
-        add_token(scanner, TokenType::Number, int_part.to_string());
+        add_token(scanner, TokenType::Number, LiteralType::Number(int_part as f64));
         return;
     }
 
-    while (peek(scanner).is_digit(10)) {
+    while peek(scanner).is_digit(10) {
         advance(scanner);
     }
 
@@ -240,11 +259,11 @@ fn number (scanner : &mut Scanner) {
         .collect::<String>()
         .parse().unwrap_or_default();
 
-    add_token(scanner, TokenType::Number, format!("{}.{}", int_part, frac_part));
+    add_token(scanner, TokenType::Number, LiteralType::Number(int_part as f64 + frac_part as f64 / 10_f64.powi(num_of_digits as i32)));
 }
 
 fn identifier (scanner : &mut Scanner) {
-    while (peek(scanner).is_alphanumeric()) {
+    while peek(scanner).is_alphanumeric() {
         advance(scanner);
     }
 
@@ -259,7 +278,7 @@ fn identifier (scanner : &mut Scanner) {
             return;
         },
         None => {
-            add_token(scanner, TokenType::Identifier, text);
+            add_token(scanner, TokenType::Identifier, LiteralType::String(text));
         }
     } 
 }
@@ -274,7 +293,7 @@ impl ScanTokens for Scanner {
             self.start = self.current;
             scan_token(self);
         }
-        let eof = Token{token_type: TokenType::EOF, lexeme: "".to_string(), literal: "".to_string(), line: self.line};
+        let eof = Token{token_type: TokenType::EOF, lexeme: "".to_string(), literal: LiteralType::Nil, line: self.line};
         self.tokens.push(eof);
         return self.tokens.clone();
     }
