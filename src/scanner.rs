@@ -1,11 +1,11 @@
 use::std::fmt::Display;
 use lazy_static::lazy_static;
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 use crate::error_handler::err;
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Single char
     LeftParen, RightParan, LeftBrac, RightBrace, Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
