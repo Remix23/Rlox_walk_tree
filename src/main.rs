@@ -20,51 +20,60 @@ struct Lox {
     had_error: bool
 }
 
+impl Lox {
 
-fn run (s : String, rlox : &Lox) {
-    let mut s = Scanner::new(s);
-    let tokens = s.scan_tokens();
+    fn run (&self, s : String, rlox : &Lox) {
+        let mut s = Scanner::new(s);
+        let tokens = s.scan_tokens();
 
-    for token in tokens {
-        println!("{}", token);
-    }
-}
-
-fn run_file(file_name: PathBuf, rlox : &Lox) {
-    let contents = fs::read_to_string(file_name)
-        .expect("Something went wrong reading the file");
-    run(contents, rlox);
-}
-
-fn run_prompt(rlox : &Lox) {
-    println!("Running prompt");
-
-    let exiting_code = ["exit", "quit", "q"];
-    
-    loop {
-        print!("> ");
-        std::io::stdout().flush().unwrap();
-        let mut input = String::new();
-        match std::io::stdin().read_line(&mut input) {
-            Ok(_) => {
-                let input = input.trim();
-                if exiting_code.contains(&input)  || input.len() == 0 {
-                    println!("Exiting");
-                    break;
-                }
-                run(input.to_string(), &rlox);
-                if rlox.had_error {
-                    break;
-                }
+        let parser = parser::Parser::new(tokens);
+        match parser.parse() {
+            Ok(e) => {
+                let mut ast_printer = parser::AstPrinter {};
+                ast_printer.print(&e);
             },
-            Err(_) => {
-                println!("Error reading input");
-                break;
+            Err (err) => {
+                
             }
         }
     }
-}
+    
+    fn run_file(&self, file_name: PathBuf, rlox : &Lox) {
+        let contents = fs::read_to_string(file_name)
+            .expect("Something went wrong reading the file");
+        self.run(contents, rlox);
+    }
 
+    fn run_prompt(rlox : &Lox) {
+        println!("Running prompt");
+        
+        let exiting_code = ["exit", "quit", "q"];
+        
+        loop {
+            print!("> ");
+            std::io::stdout().flush().unwrap();
+            let mut input = String::new();
+            match std::io::stdin().read_line(&mut input) {
+                Ok(_) => {
+                    let input = input.trim();
+                    if exiting_code.contains(&input)  || input.len() == 0 {
+                        println!("Exiting");
+                        break;
+                    }
+                    run(input.to_string(), &rlox);
+                    if rlox.had_error {
+                        break;
+                    }
+                },
+                Err(_) => {
+                    println!("Error reading input");
+                    break;
+                }
+            }
+        }
+    }
+
+}
 fn main() {
 
     let args : Vec<String> = env::args().collect();

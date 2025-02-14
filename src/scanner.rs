@@ -151,7 +151,7 @@ fn scan_token (scanner : &mut Scanner) -> bool {
             if c.is_ascii_alphabetic() {
                 identifier(scanner);
             } else {
-                err(scanner.line, "Unexpected character".to_string());
+                err(scanner.line, "Unexpected character");
                 err_code = true;
             }
         }
@@ -215,7 +215,7 @@ fn string (scanner : &mut Scanner) {
         advance(scanner);
     }
     if is_at_end(scanner) {
-        err(scanner.line, "Unterminated string".to_string());
+        err(scanner.line, "Unterminated string");
         return;
     }
     // close the string
