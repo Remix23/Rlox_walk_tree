@@ -14,6 +14,7 @@ pub mod error_handler;
 pub mod expr;
 pub mod parser;
 pub mod traits;
+pub mod interpreter;
 
 struct Lox {
     had_error: bool
@@ -24,18 +25,21 @@ impl Lox {
     fn run (&self, s : String) {
 
         let mut printer = parser::AstPrinter {};
+        let mut interpreter = interpreter::Interpreter {};
 
         let mut s = Scanner::new(s);
         let tokens = s.scan_tokens();
 
-        for token in &tokens {
-            println!("{:?}", token);
-        }
+        // for token in &tokens {
+        //     println!("{:?}", token);
+        // }
 
         let mut parser = parser::Parser::new(tokens);
         match parser.parse() {
             Ok(expr) => {
                 printer.print(&expr);
+                let result = interpreter.evaluate(&expr);
+                println!("Result: {:?}", result);
             },
             Err(e) => {
                 println!("Error parsing expression");
