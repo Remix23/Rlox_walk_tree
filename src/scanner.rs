@@ -8,7 +8,7 @@ use crate::error_handler::err;
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Single char
-    LeftParen, RightParan, LeftBrac, RightBrace, Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
+    LeftParen, RightParan, LeftBrac, RightBrace, Comma, Dot, Colon, Minus, Plus, Semicolon,  Slash, Star, QuestionMark,
 
     // One or two char
     Bang, BangEqual, Equal, EqualEqual, Greater, GreaterEqual, Less, LessEqual,
@@ -116,11 +116,13 @@ fn scan_token (scanner : &mut Scanner) -> bool {
         '{' => _add_token(scanner, TokenType::LeftBrac),
         '}' => _add_token(scanner, TokenType::RightBrace),
         ',' => _add_token(scanner, TokenType::Comma),
+        ':' => _add_token(scanner, TokenType::Colon),
         '.' => _add_token(scanner, TokenType::Dot),
         '-' => _add_token(scanner, TokenType::Minus),
         '+' => _add_token(scanner, TokenType::Plus),
         ';' => _add_token(scanner, TokenType::Semicolon),
         '*' => _add_token(scanner, TokenType::Star),
+        '?' => _add_token(scanner, TokenType::QuestionMark),
 
         // two chat tokens
         '!' => if check_next(scanner, '=') { _add_token(scanner, TokenType::BangEqual) } else { _add_token(scanner, TokenType::Bang) },

@@ -72,8 +72,9 @@ if __name__ == "__main__" :
     exprs = [
         "Binary   : Expr left, Token operator, Expr right",
         "Grouping : Expr expression",
-        "Literal  : Object value",
-        "Unary    : Token operator, Expr right"
+        "Literal  : LiteralType value",
+        "Unary    : Token operator, Expr right",
+        "Conditional : Expr condition, Expr then_branch, Expr else_branch",
     ]
     if len(sys.argv) != 2:
         print("Usage: generateAst <output directory>")

@@ -4,11 +4,10 @@ use std::fs;
 use std::io::Write;
 use std::path::{PathBuf};
 
-use expr::Expr;
-use scanner::{ScanTokens, TokenType};
+use scanner::{ScanTokens};
 
 // relative modules
-use crate::scanner::{Scanner, Token};
+use crate::scanner::{Scanner};
 
 pub mod scanner;
 pub mod error_handler;
@@ -22,29 +21,35 @@ struct Lox {
 
 impl Lox {
 
-    fn run (&self, s : String, rlox : &Lox) {
+    fn run (&self, s : String) {
+
+        let mut printer = parser::AstPrinter {};
+
         let mut s = Scanner::new(s);
         let tokens = s.scan_tokens();
 
-        let parser = parser::Parser::new(tokens);
+        for token in &tokens {
+            println!("{:?}", token);
+        }
+
+        let mut parser = parser::Parser::new(tokens);
         match parser.parse() {
-            Ok(e) => {
-                let mut ast_printer = parser::AstPrinter {};
-                ast_printer.print(&e);
+            Ok(expr) => {
+                printer.print(&expr);
             },
-            Err (err) => {
-                
+            Err(e) => {
+                println!("Error parsing expression");
             }
         }
     }
     
-    fn run_file(&self, file_name: PathBuf, rlox : &Lox) {
+    fn run_file(&self, file_name: PathBuf) {
         let contents = fs::read_to_string(file_name)
             .expect("Something went wrong reading the file");
-        self.run(contents, rlox);
+        self.run(contents);
     }
 
-    fn run_prompt(rlox : &Lox) {
+    fn run_prompt(&self, rlox : &Lox) {
         println!("Running prompt");
         
         let exiting_code = ["exit", "quit", "q"];
@@ -60,7 +65,7 @@ impl Lox {
                         println!("Exiting");
                         break;
                     }
-                    run(input.to_string(), &rlox);
+                    self.run(input.to_string());
                     if rlox.had_error {
                         break;
                     }
@@ -82,39 +87,9 @@ fn main() {
 
     // create a new Lox instance
 
-    let mut rlox = Lox {
+    let rlox = Lox {
         had_error: false
     };
-
-    // test AST
-
-    let expr = Expr::Binary(expr::Binary {
-        left: Box::new(Expr::Unary(expr::Unary {
-            operator: Token {
-                token_type: TokenType::Minus,
-                lexeme: "-".to_string(),
-                literal: scanner::LiteralType::Nil,
-                line: 1,
-            },
-            right: Box::new(Expr::Literal(expr::Literal {
-                value: scanner::LiteralType::Number(123.0),
-            })),
-        })),
-        operator: Token {
-            token_type: TokenType::Star,
-            lexeme: "*".to_string(),
-            literal: scanner::LiteralType::Nil,
-            line: 1,
-        },
-        right: Box::new(Expr::Grouping(expr::Grouping {
-            expression: Box::new(Expr::Literal(expr::Literal {
-                value: scanner::LiteralType::Nil,
-            })),
-        })),
-    });
-
-    let mut ast_printer = parser::AstPrinter {};
-    ast_printer.print(&expr);
     
     let n_of_arguments = args.len();
     if n_of_arguments > 2 {
@@ -122,8 +97,8 @@ fn main() {
         return;
     } else if n_of_arguments == 2 {
         let file_path = p.join(&args[1]);
-        run_file(file_path, &rlox);
+        rlox.run_file(file_path);
     } else {
-        run_prompt(&rlox);
+        rlox.run_prompt(&rlox);
     }
 }

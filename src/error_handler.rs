@@ -1,8 +1,8 @@
 use crate::scanner::{Token, TokenType};
 
 pub struct ParseError {
-    line : i32,
-    message : String,
+    pub line : i32,
+    pub message : String,
 }
 
 pub struct RuntimeError {
@@ -32,17 +32,15 @@ pub fn err (line : i32, msg : &str) -> bool {
     return true;
 }  
 
-pub fn parse_error (token : &Token, msg : &str) -> LoxError{
+pub fn parse_error (token : &Token, msg : &str) -> ParseError{
     if token.token_type == TokenType::EOF {
         report(token.line, " at end".to_string(), msg);
     } else {
         report(token.line, format!(" at '{}'", token.lexeme), msg);
     }
 
-    return LoxError::ParseError({
-        ParseError {
+    ParseError {
             line: token.line,
             message: msg.to_string(),
         }
-    });
 }

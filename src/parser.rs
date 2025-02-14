@@ -1,14 +1,14 @@
 
-use core::panic;
 use std::vec;
 
-use crate::expr::{Binary, Expr, Grouping, Literal, Unary, Visitor};
+use crate::expr::{Binary, Expr, Grouping, Literal, Unary, Visitor, Conditional};
 use crate::scanner::{Token, TokenType, LiteralType};
 use crate::error_handler::*;
 
 pub struct Parser {
     tokens : Vec<Token>,
     current : usize,
+    errors : Vec<ParseError>,
 }
 
 pub struct AstPrinter {}
@@ -27,6 +27,10 @@ impl Visitor<String> for AstPrinter {
 
     fn visit_unary(&mut self, unary : &crate::expr::Unary) -> String {
         return self.parenthesize(&unary.operator.lexeme, vec![&unary.right]);
+    }
+
+    fn visit_conditional(&mut self, conditional : &Conditional) -> String {
+        return self.parenthesize(&"?:".to_string(), vec![&conditional.condition, &conditional.then_branch, &conditional.else_branch]);
     }
 }
 
@@ -52,17 +56,52 @@ impl Parser {
         Parser {
             tokens,
             current: 0,
+            errors: vec![]
         }
     }
 
-    pub fn parse (&mut self) -> Result<Expr, LoxError>{
+    pub fn parse (&mut self) -> Result<Expr, ParseError>{
         self.expression()
     }
-    fn expression (&mut self) -> Result<Expr, LoxError> {
-        self.equality()
+    fn expression (&mut self) -> Result<Expr, ParseError> {
+        self.comma()
     }
 
-    fn equality (&mut self) -> Result<Expr, LoxError> {
+    // TODO: add support for coma oprator 
+    // * Done
+    fn comma (&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.ternary_operator()?;
+
+        while self.match_token(vec![TokenType::Comma]) {
+            let operator = self.previous();
+            let right = self.ternary_operator()?;
+            expr = Expr::Binary(Binary {
+                left : Box::new(expr),
+                operator : operator,
+                right : Box::new(right)
+            });
+        }
+        Ok(expr)
+    }
+
+    // TODO: add support for ternary operator;
+    fn ternary_operator (&mut self) -> Result<Expr, ParseError> {
+        let condition = self.equality()?;
+        if self.match_token(vec![TokenType::QuestionMark]) {
+            let then_branch = self.ternary_operator()?;
+            self.consume(TokenType::Colon, "Expect ':' after then branch".to_string())?;
+            let else_branch = self.ternary_operator()?;
+            return Ok(Expr::Conditional(Conditional {
+                condition : Box::new(condition),
+                then_branch : Box::new(then_branch),
+                else_branch : Box::new(else_branch)
+            }));
+        }
+        
+        Ok(condition)
+    }
+
+    fn equality (&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.comparison()?;
 
         while self.match_token(vec![TokenType::EqualEqual, TokenType::BangEqual]) {
@@ -77,7 +116,7 @@ impl Parser {
         return Ok(expr);
     }
 
-    fn comparison (&mut self) -> Result<Expr, LoxError> {
+    fn comparison (&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.term()?;
 
         while self.match_token(vec![TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual]) {
@@ -94,7 +133,7 @@ impl Parser {
         return Ok(expr);
     }
 
-    fn term (&mut self) -> Result<Expr, LoxError> {
+    fn term (&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.factor()?;
 
         while self.match_token(vec![TokenType::Minus, TokenType::Plus]) {
@@ -109,7 +148,7 @@ impl Parser {
         return Ok(expr);
     }
 
-    fn factor (&mut self) -> Result<Expr, LoxError> {
+    fn factor (&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.unary()?;
 
         while self.match_token(vec![TokenType::Slash, TokenType::Star]) {
@@ -125,9 +164,7 @@ impl Parser {
         return Ok(expr);
     }
 
-    fn unary (&mut self) -> Result<Expr, LoxError> {
-        let expr = self.primary()?;
-
+    fn unary (&mut self) -> Result<Expr, ParseError> {
         if self.match_token(vec![TokenType::Bang, TokenType::Minus]) {
             let operator = self.previous ();
             let right = self.unary()?;
@@ -137,10 +174,10 @@ impl Parser {
             }))
         }
 
-        Ok(expr)
+        self.primary()
     }
 
-    fn primary (&mut self) -> Result<Expr, LoxError> {
+    fn primary (&mut self) -> Result<Expr, ParseError> {
         match self.peek().token_type  {
             TokenType::False => {
                 self.advance();
@@ -176,15 +213,19 @@ impl Parser {
                 self.advance();
                 let expr = self.expression()?;
 
+                self.consume(TokenType::RightParan, "Expect ')' after expression".to_string())?;
+
                 Ok(Expr::Grouping(Grouping {
                     expression : Box::new(expr)
                 }))
             }
-            _ => {Ok(Expr::Literal(Literal {value : LiteralType::Nil}))}
+            _ => {
+                Err(parse_error(&self.peek(), "Expect expression"))
+            }
         }
     }
 
-    fn consume (&mut self, token : TokenType, msg :String ) -> Result<Token, LoxError> {
+    fn consume (&mut self, token : TokenType, msg :String ) -> Result<Token, ParseError> {
         if self.check(token) { return Ok(self.advance());}
 
         let curr = self.peek();
