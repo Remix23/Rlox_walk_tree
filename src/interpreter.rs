@@ -10,6 +10,9 @@ use crate::environemnt::Environemnt;
 // TODO: Add runtime error handling
 pub struct Interpreter {
     environment : Rc<RefCell<Environemnt>>,
+    loop_break : bool,
+    loop_continue : bool,
+    in_loop : bool,
 }
 
 impl Interpreter {
@@ -17,6 +20,9 @@ impl Interpreter {
     pub fn new (global :  Rc<RefCell<Environemnt>>) -> Interpreter {
         Interpreter {
             environment : global,
+            loop_break : false,
+            loop_continue : false,
+            in_loop : false,
         }
     }
 
@@ -67,11 +73,14 @@ impl Interpreter {
         }
     }
 
-    fn execute_block (&mut self, statements : &Vec<Stmt>, environment : Environemnt) {
+    fn execute_block (&mut self, statements : &Vec<Stmt>, environment : Environemnt, is_loop : bool) {
         let previous = Rc::clone(&self.environment);
 
         self.environment = Rc::new(RefCell::new(environment));
         for stmt in statements {
+            if is_loop && (self.loop_break || self.loop_continue) {
+                break;
+            }
             self.execute(stmt);
         }
         self.environment = previous;
@@ -145,6 +154,19 @@ impl expr::Visitor<LiteralType> for Interpreter {
                 }
             }
 
+            // modulo operator
+            TokenType::Percentage => {
+                match (left, right) {
+                    (LiteralType::Number(l), LiteralType::Number(r)) => {
+                        // try casting into integer
+                        LiteralType::Number(l % r)
+                    },
+                    _ => {
+                        // TODO: Report error for not a number
+                        todo!()
+                    }
+                }
+            }
             // comparison operators
             TokenType::Greater => {
                 match (left, right) {
@@ -281,7 +303,7 @@ impl stmt::Visitor<()> for Interpreter {
         let stmts = &block.statements;
         let environment = Environemnt::new(Some(self.environment.clone()));
 
-        self.execute_block(stmts, environment);
+        self.execute_block(stmts, environment, self.in_loop);
     }
 
     fn visit_iff(&mut self, iff : &stmt::Iff) -> () {
@@ -299,7 +321,25 @@ impl stmt::Visitor<()> for Interpreter {
         let condition = &whilee.condition;
 
         while is_truthy(& self.evaluate(condition)) {
+
+            self.in_loop = true;
+
             self.execute(&whilee.body);
+
+            if self.loop_break {
+                self.loop_break = false;
+                break;
+            }
         }
+
+        self.in_loop = false;
+    }
+
+    fn visit_breakk(&mut self, _break : &stmt::Breakk) -> () {
+        self.loop_break = true;
+    }
+
+    fn visit_continuee(&mut self, _continue : &stmt::Continuee) -> () {
+        self.loop_continue = true;
     }
 }

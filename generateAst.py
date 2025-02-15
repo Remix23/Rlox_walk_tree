@@ -40,6 +40,7 @@ def defineEnum (fileHandler, enumName : str, cases : list[str]) :
 def defineStruct (fileHandelr, structName, fields) :
     fileHandelr.write(f"pub struct {structName} {{\n")
     for field in fields:
+        if field == "": continue
         print(field)
         type_of_field, name_of_field = [x.strip() for x in field.strip().split(" ")]
         
@@ -74,6 +75,7 @@ if __name__ == "__main__" :
     exprs = [
         "Binary   : Expr left, Token operator, Expr right",
         "Logical  : Expr left, Token operator, Expr right",
+        "Call     : Expr callee, Token paren, Vec<Expr> arguments",
         "Grouping : Expr expression",
         "Literal  : LiteralType value",
         "Unary    : Token operator, Expr right",
@@ -82,14 +84,18 @@ if __name__ == "__main__" :
         "Assigment : Token name, Expr value",
     ]
 
+    # the token in the function call is used to report optional runtaime errors
+
     smts = [
         "Expression : Expr expression",
         "Print      : Expr expression",
         "Var        : Token name, Option<Expr> initializer",
         "Block      : Vec<Stmt> statements",
         "Iff         : Expr condition, Box<Stmt> then_branch, Option<Box<Stmt>> else_branch",
-        "Whilee     : Expr condition, Box<Stmt> body",
-        
+        "Whilee     : Expr condition, Box<Stmt> body, bool is_for",
+        "Breakk      : ",
+        "Continuee   : ",
+
     ]
     if len(sys.argv) != 2:
         print("Usage: generateAst <output directory>")

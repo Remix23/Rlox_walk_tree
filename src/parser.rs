@@ -4,7 +4,7 @@ use std::vec;
 use crate::expr::{self, Assigment, Binary, Conditional, Expr, Grouping, Literal, Logical, Unary, Variable, Visitor};
 use crate::scanner::{Token, TokenType, LiteralType};
 use crate::{error_handler::*};
-use crate::stmt::{Block, Expression, Iff, Print, Stmt, Var, Whilee};
+use crate::stmt::{Block, Expression, Iff, Print, Stmt, Var, Whilee, Breakk, Continuee};
 
 pub struct Parser {
     tokens : Vec<Token>,
@@ -67,7 +67,7 @@ impl Parser {
         Parser {
             tokens,
             current: 0,
-            errors: vec![]
+            errors: vec![],
         }
     }
 
@@ -141,6 +141,14 @@ impl Parser {
                 self.advance();
                 self.for_statement()
             }
+            TokenType::Break => {
+                self.advance();
+                self.break_statement()
+            }
+            TokenType::Continue => {
+                self.advance();
+                self.continue_statement()
+            }
             _ => {self.expression_statement()}
         }
     }
@@ -198,11 +206,13 @@ impl Parser {
 
         Ok (Stmt::Whilee(Whilee {
             condition : Box::new(condition),
-            body : Box::new(body)
+            body : Box::new(body),
+            is_for : false
         }))
     }
 
     fn for_statement (&mut self) -> Result<Stmt, ParseError> {
+        
         self.consume(TokenType::LeftParen, "Expect '(' after 'for'")?;
 
         let initializer = if self.match_token(vec![TokenType::Semicolon]) {
@@ -243,7 +253,8 @@ impl Parser {
 
         body = Stmt::Whilee(Whilee {
             condition : Box::new(condition),
-            body : Box::new(body)
+            body : Box::new(body),
+            is_for : true
         });
 
         if let Some(initializer) = initializer {
@@ -261,6 +272,16 @@ impl Parser {
         Ok(Stmt::Expression(Expression {
             expression : Box::new(value)
         }))
+    }
+
+    fn break_statement (&mut self) -> Result<Stmt, ParseError> {
+        self.consume(TokenType::Semicolon, "Expect ';' after break")?;
+        Ok(Stmt::Breakk(Breakk {}))
+    }
+
+    fn continue_statement (&mut self) -> Result<Stmt, ParseError> {
+        self.consume(TokenType::Semicolon, "Expect ';' after continue")?;
+        Ok(Stmt::Continuee(Continuee {}))
     }
 
     fn expression (&mut self) -> Result<Expr, ParseError> {
@@ -404,7 +425,7 @@ impl Parser {
     fn factor (&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.unary()?;
 
-        while self.match_token(vec![TokenType::Slash, TokenType::Star]) {
+        while self.match_token(vec![TokenType::Slash, TokenType::Star, TokenType::Percentage]) {
             let operator = self.previous ();
             let right = self.unary ()?;
             expr = Expr::Binary (Binary {

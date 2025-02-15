@@ -8,7 +8,7 @@ use crate::error_handler::err;
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Single char
-    LeftParen, RightParan, LeftBrac, RightBrace, Comma, Dot, Colon, Minus, Plus, Semicolon,  Slash, Star, QuestionMark,
+    LeftParen, RightParan, LeftBrac, RightBrace, Comma, Dot, Colon, Minus, Plus, Semicolon,  Slash, Star, QuestionMark, Percentage,
 
     // One or two char
     Bang, BangEqual, Equal, EqualEqual, Greater, GreaterEqual, Less, LessEqual,
@@ -18,6 +18,7 @@ pub enum TokenType {
     
     // Keywords
     And, Class, Else, False, Fun, For, If, Nil, Or, Print, Return, Super, This, True, Var, While,
+    Break, Continue,
 
     // End of file
     EOF,
@@ -61,6 +62,8 @@ lazy_static! {
         ("true", TokenType::True),
         ("var", TokenType::Var),
         ("while", TokenType::While),
+        ("break", TokenType::Break),
+        ("continue", TokenType::Continue),
     ]);
 }
 
@@ -123,6 +126,7 @@ fn scan_token (scanner : &mut Scanner) -> bool {
         ';' => _add_token(scanner, TokenType::Semicolon),
         '*' => _add_token(scanner, TokenType::Star),
         '?' => _add_token(scanner, TokenType::QuestionMark),
+        '%' => _add_token(scanner, TokenType::Percentage),
 
         // two chat tokens
         '!' => if check_next(scanner, '=') { _add_token(scanner, TokenType::BangEqual) } else { _add_token(scanner, TokenType::Bang) },

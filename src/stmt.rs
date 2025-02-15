@@ -7,6 +7,8 @@ pub enum Stmt {
     Block (Block),
     Iff (Iff),
     Whilee (Whilee),
+    Breakk (Breakk),
+    Continuee (Continuee),
 }
 pub struct Expression {
     pub expression : Box<Expr>,
@@ -29,6 +31,11 @@ pub struct Iff {
 pub struct Whilee {
     pub condition : Box<Expr>,
     pub body : Box<Stmt>,
+    pub is_for : bool,
+}
+pub struct Breakk {
+}
+pub struct Continuee {
 }
 pub trait Visitor<T> {
     fn visit_expression(&mut self, expression : &Expression) -> T;
@@ -37,6 +44,8 @@ pub trait Visitor<T> {
     fn visit_block(&mut self, block : &Block) -> T;
     fn visit_iff(&mut self, iff : &Iff) -> T;
     fn visit_whilee(&mut self, whilee : &Whilee) -> T;
+    fn visit_breakk(&mut self, breakk : &Breakk) -> T;
+    fn visit_continuee(&mut self, continuee : &Continuee) -> T;
 }
 impl Stmt {
     pub fn accept<T>(&self, visitor : &mut dyn Visitor<T>) -> T {
@@ -47,6 +56,8 @@ impl Stmt {
             Stmt::Block (block) => visitor.visit_block(block),
             Stmt::Iff (iff) => visitor.visit_iff(iff),
             Stmt::Whilee (whilee) => visitor.visit_whilee(whilee),
+            Stmt::Breakk (breakk) => visitor.visit_breakk(breakk),
+            Stmt::Continuee (continuee) => visitor.visit_continuee(continuee),
           }
       }
 }
