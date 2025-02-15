@@ -1,8 +1,10 @@
+use std::cell::{RefCell};
 use std::env;
 use std::env::current_dir;
 use std::fs;
 use std::io::Write;
 use std::path::{PathBuf};
+use std::rc::Rc;
 
 use scanner::{ScanTokens};
 
@@ -15,31 +17,29 @@ pub mod expr;
 pub mod parser;
 pub mod traits;
 pub mod interpreter;
+pub mod stmt;
+pub mod environemnt;
+
+pub mod tests;
 
 struct Lox {
-    had_error: bool
+    had_error: bool,
+    repl : bool,
+    interpreter : interpreter::Interpreter,
 }
 
 impl Lox {
 
-    fn run (&self, s : String) {
+    fn run (&mut self, s : String) {
 
-        let mut printer = parser::AstPrinter {};
-        let mut interpreter = interpreter::Interpreter {};
-
+        // let mut printer = parser::AstPrinter {};
         let mut s = Scanner::new(s);
         let tokens = s.scan_tokens();
 
-        // for token in &tokens {
-        //     println!("{:?}", token);
-        // }
-
         let mut parser = parser::Parser::new(tokens);
         match parser.parse() {
-            Ok(expr) => {
-                printer.print(&expr);
-                let result = interpreter.evaluate(&expr);
-                println!("Result: {:?}", result);
+            Ok(stmts) => {
+                self.interpreter.interpret(stmts, self.repl);
             },
             Err(e) => {
                 println!("Error parsing expression");
@@ -47,13 +47,15 @@ impl Lox {
         }
     }
     
-    fn run_file(&self, file_name: PathBuf) {
+    fn run_file(&mut self, file_name: PathBuf) {
+        self.repl = false;
         let contents = fs::read_to_string(file_name)
             .expect("Something went wrong reading the file");
         self.run(contents);
     }
 
-    fn run_prompt(&self, rlox : &Lox) {
+    fn run_prompt(&mut self) {
+        self.repl = true;
         println!("Running prompt");
         
         let exiting_code = ["exit", "quit", "q"];
@@ -70,7 +72,7 @@ impl Lox {
                         break;
                     }
                     self.run(input.to_string());
-                    if rlox.had_error {
+                    if self.had_error {
                         break;
                     }
                 },
@@ -91,8 +93,12 @@ fn main() {
 
     // create a new Lox instance
 
-    let rlox = Lox {
-        had_error: false
+    let global_env = environemnt::Environemnt::new(None);
+
+    let mut rlox = Lox {
+        had_error: false,
+        repl: false,
+        interpreter: interpreter::Interpreter::new(Rc::new(RefCell::new(global_env))),
     };
     
     let n_of_arguments = args.len();
@@ -103,6 +109,6 @@ fn main() {
         let file_path = p.join(&args[1]);
         rlox.run_file(file_path);
     } else {
-        rlox.run_prompt(&rlox);
+        rlox.run_prompt();
     }
 }

@@ -1,13 +1,47 @@
+use std::rc::Rc;
+use std::cell::{Ref, RefCell};
+
 use crate::scanner::TokenType;
-use crate::{expr::Visitor, scanner::LiteralType};
+use crate::{expr, scanner::LiteralType, stmt};
 use crate::expr::{Binary, Conditional, Expr, Grouping, Literal, Unary};
+use crate::stmt::{Expression, Print, Stmt, Visitor};
+use crate::environemnt::Environemnt;
 
-
-pub struct Interpreter {}
+// TODO: Add runtime error handling
+pub struct Interpreter {
+    environment : Rc<RefCell<Environemnt>>,
+}
 
 impl Interpreter {
+
+    pub fn new (global :  Rc<RefCell<Environemnt>>) -> Interpreter {
+        Interpreter {
+            environment : global,
+        }
+    }
+
     pub fn evaluate (&mut self, expr : &Expr) -> LiteralType {
-        expr.accept(self)
+        expr.accept( self)
+    }
+
+    fn execute (&mut self, stmt : &Stmt) {
+        stmt.accept(self);
+    }
+
+    pub fn interpret (&mut self, stmts : Vec<Stmt>, repl : bool) {
+        for stmt in stmts {
+            self.execute(&stmt);
+
+            if repl {
+                match stmt {
+                    Stmt::Expression(e) => {
+                        let val = self.evaluate(&e.expression);
+                        self.print_val(&val);
+                    },
+                    _ => {}
+                }
+            }
+        }
     }
 
     // Helpers:
@@ -30,12 +64,31 @@ impl Interpreter {
         }
     }
 
+    fn print_val (&self, value : &LiteralType) {
+        match value {
+            LiteralType::String(s) => println!("{}", s),
+            LiteralType::Number(n) => println!("{}", n),
+            LiteralType::Bool(b) => println!("{}", b),
+            LiteralType::Nil => println!("nil"),
+        }
+    }
+
+    fn execute_block (&mut self, statements : &Vec<Stmt>, environment : Environemnt) {
+        let previous = Rc::clone(&self.environment);
+
+        self.environment = Rc::new(RefCell::new(environment));
+        for stmt in statements {
+            self.execute(stmt);
+        }
+        self.environment = previous;
+    }
+
     fn report_run_time_error (&mut self) {
         todo!()
     }
 }
 
-impl Visitor<LiteralType> for Interpreter {
+impl expr::Visitor<LiteralType> for Interpreter {
 
     fn visit_binary(&mut self, binary : &Binary) -> LiteralType {
         let left = self.evaluate(&binary.left);
@@ -55,6 +108,15 @@ impl Visitor<LiteralType> for Interpreter {
                 match (left, right) {
                     (LiteralType::Number(l), LiteralType::Number(r)) => LiteralType::Number(l + r),
                     (LiteralType::String(l), LiteralType::String(r)) => LiteralType::String(format!("{}{}", l, r)),
+                    
+                    // TODO: Casting to string
+                    // * DONE
+                    (LiteralType::Number(n), LiteralType::String(s)) => {
+                        LiteralType::String(format!("{}{}", n, s))
+                    }
+                    (LiteralType::String(s), LiteralType::Number(n)) => {
+                        LiteralType::String(format!("{}{}", s, n))
+                    }
                     // TODO: Return runtime error for invalid types
                     _ => {todo!()}
                 }
@@ -66,11 +128,15 @@ impl Visitor<LiteralType> for Interpreter {
                     // TODO: Report error for not a number
                     _ => {todo!()}
                 }
-            }
+            } 
 
             TokenType::Slash => {
                 match (left, right) {
-                    (LiteralType::Number(l), LiteralType::Number(r)) => LiteralType::Number(l / r),
+                    (LiteralType::Number(l), LiteralType::Number(r)) => {
+                        // TODO: Return runtime error for division by zero
+
+                        LiteralType::Number(l / r)
+                    },
                     // TODO: Report error for not a number
                     _ => {todo!()}
                 }
@@ -152,6 +218,47 @@ impl Visitor<LiteralType> for Interpreter {
         }
     }
 
-
+    fn visit_variable(&mut self, variable : &expr::Variable) -> LiteralType {
+        let name = &variable.name.lexeme;
+        match self.environment.borrow_mut().get(name.clone()) {
+            Some(value) => value.clone(),
+            None => {
+                // TODO: Report error for undefined variable
+                println!("Undefined variable '{}'", name);
+                return LiteralType::Nil;
+            }
+        }
+    }
+    fn visit_assigment(&mut self, assigment : &expr::Assigment) -> LiteralType {
+        let value = self.evaluate(&assigment.value);
+        let name = &assigment.name.lexeme;
+        self.environment.borrow_mut().assign(name.clone(), value.clone());
+        return value;
+    }
 }
 
+impl stmt::Visitor<()> for Interpreter {
+    fn visit_expression(&mut self, expression : &Expression) {
+        self.evaluate(&expression.expression);
+    }
+
+    fn visit_print(&mut self, print : &Print) {
+        let value: LiteralType = self.evaluate(&print.expression);
+        self.print_val(&value);
+    }
+
+    fn visit_var(&mut self, var : &stmt::Var) {
+        let value = match &var.initializer {
+            Some (expr) => self.evaluate(expr),
+            None => LiteralType::Nil,
+        };
+
+        self.environment.borrow_mut().define(var.name.lexeme.clone(), value);
+    }
+    fn visit_block(&mut self, block : &stmt::Block) -> () {
+        let stmts = &block.statements;
+        let environment = Environemnt::new(Some(self.environment.clone()));
+
+        self.execute_block(stmts, environment);
+    }
+}

@@ -7,7 +7,7 @@ types:
 """
 
 def defineAst(outputDir, baseName : str, types : list[str]):
-    p = outputDir + "/" + baseName + ".rs"
+    p = outputDir + "/" + baseName.lower() + ".rs"
 
     if path.exists(p):
         remove(p)
@@ -43,6 +43,7 @@ def defineStruct (fileHandelr, structName, fields) :
         type_of_field, name_of_field = [x.strip() for x in field.strip().split(" ")]
         
         if type_of_field == "Expr" : type_of_field = "Box<Expr>"
+        if type_of_field == "Stmt" : type_of_field = "Box<Stmt>"
         
         ### construct struct fields
         fileHandelr.write(f"    pub {name_of_field} : {type_of_field},\n")
@@ -50,7 +51,7 @@ def defineStruct (fileHandelr, structName, fields) :
     fileHandelr.write("}\n")
 
 def defineVistorTrait (fileHandler, types):
-    fileHandler.write("pub trait Visitor<T> {\n")
+    fileHandler.write(f"pub trait Visitor<T> {{\n")
     for t in types:
         typeName = t.split(":")[0].strip()
         fileHandler.write(f"    fn visit_{typeName.lower()}(&mut self, {typeName.lower()} : &{typeName}) -> T;\n")
@@ -75,10 +76,19 @@ if __name__ == "__main__" :
         "Literal  : LiteralType value",
         "Unary    : Token operator, Expr right",
         "Conditional : Expr condition, Expr then_branch, Expr else_branch",
+        "Variable : Token name",
+        "Assigment : Token name, Expr value",
+    ]
+
+    smts = [
+        "Expression : Expr expression",
+        "Print      : Expr expression",
+        "Var        : Token name, Option<Expr> initializer",
+        "Block      : Vec<Stmt> statements",
     ]
     if len(sys.argv) != 2:
         print("Usage: generateAst <output directory>")
         sys.exit(64)
 
     outputDir = sys.argv[1]
-    defineAst(outputDir, "Expr", exprs)
+    defineAst(outputDir, "Stmt", smts)

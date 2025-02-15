@@ -1,9 +1,10 @@
 
 use std::vec;
 
-use crate::expr::{Binary, Expr, Grouping, Literal, Unary, Visitor, Conditional};
+use crate::expr::{Assigment, Binary, Conditional, Expr, Grouping, Literal, Unary, Variable, Visitor};
 use crate::scanner::{Token, TokenType, LiteralType};
-use crate::error_handler::*;
+use crate::{error_handler::*};
+use crate::stmt::{Block, Expression, Print, Stmt, Var};
 
 pub struct Parser {
     tokens : Vec<Token>,
@@ -31,6 +32,13 @@ impl Visitor<String> for AstPrinter {
 
     fn visit_conditional(&mut self, conditional : &Conditional) -> String {
         return self.parenthesize(&"?:".to_string(), vec![&conditional.condition, &conditional.then_branch, &conditional.else_branch]);
+    }
+    fn visit_variable(&mut self, variable : &crate::expr::Variable) -> String {
+        todo!()
+    }
+
+    fn visit_assigment(&mut self, assigment : &crate::expr::Assigment) -> String {
+        todo!()
     }
 }
 
@@ -60,9 +68,99 @@ impl Parser {
         }
     }
 
-    pub fn parse (&mut self) -> Result<Expr, ParseError>{
-        self.expression()
+    pub fn parse (&mut self) -> Result<Vec<Stmt>, ParseError>{
+        let mut statements = vec![];
+
+        while !self.is_at_end() {
+            match self.declaration() {
+                Some(stmt) => statements.push(stmt),
+                None => {continue;}
+            }
+        }
+
+        Ok(statements)
     }
+
+    fn declaration (&mut self) -> Option<Stmt> {
+        let stmt = if self.match_token(vec![TokenType::Var]) {
+            self.var_declaration()
+        } else {
+            self.statement()
+        };
+        match stmt {
+            Ok(stmt) => Some(stmt),
+            Err(e) => {
+                self.errors.push(e);
+                self.synchronise();
+                None
+            }
+        }
+    }
+
+    fn var_declaration (&mut self) -> Result<Stmt, ParseError> {
+        let token = self.consume(TokenType::Identifier, "Expect a variable name")?;
+
+        let mut initializer= None;
+        if self.match_token(vec![TokenType::Equal]) {
+            initializer = Some(self.expression()?);
+        } 
+        self.consume(TokenType::Semicolon, "Expect ';' after variable declaration")?;
+        Ok (
+            Stmt::Var(Var {
+                name : token,
+                initializer :  initializer
+            })
+        )
+    }
+
+    fn statement (&mut self) -> Result<Stmt, ParseError> {
+        match self.peek().token_type {
+            TokenType::Print => {
+                self.advance(); 
+                return self.print_statement()
+            }
+            TokenType::LeftBrac => {
+                self.advance();
+                let block = self.block()?;
+                return Ok(Stmt::Block(Block {
+                    statements : block
+                }));
+            }
+            _ => {self.advance();}
+        }
+
+        self.expression_statement()
+    }
+
+    fn print_statement (&mut self) -> Result<Stmt, ParseError> {
+        let value = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after value")?;
+        Ok(Stmt::Print(Print {
+            expression : Box::new(value)
+        }))
+    }
+
+    fn block (&mut self) -> Result<Vec<Stmt>, ParseError> {
+        let mut statements = vec![];
+
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            match self.declaration() {
+                Some(stmt) => statements.push(stmt),
+                None => {continue;}
+            }
+        }
+        self.consume(TokenType::RightBrace, "Expect '}' after block")?;
+        return Ok(statements);
+    }
+
+    fn expression_statement (&mut self) -> Result<Stmt, ParseError> {
+        let value = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after value")?;
+        Ok(Stmt::Expression(Expression {
+            expression : Box::new(value)
+        }))
+    }
+
     fn expression (&mut self) -> Result<Expr, ParseError> {
         self.comma()
     }
@@ -70,11 +168,11 @@ impl Parser {
     // TODO: add support for coma oprator 
     // * Done
     fn comma (&mut self) -> Result<Expr, ParseError> {
-        let mut expr = self.ternary_operator()?;
+        let mut expr = self.second_level()?;
 
         while self.match_token(vec![TokenType::Comma]) {
             let operator = self.previous();
-            let right = self.ternary_operator()?;
+            let right = self.second_level()?;
             expr = Expr::Binary(Binary {
                 left : Box::new(expr),
                 operator : operator,
@@ -85,17 +183,39 @@ impl Parser {
     }
 
     // TODO: add support for ternary operator;
-    fn ternary_operator (&mut self) -> Result<Expr, ParseError> {
+    fn second_level (&mut self) -> Result<Expr, ParseError> {
         let condition = self.equality()?;
-        if self.match_token(vec![TokenType::QuestionMark]) {
-            let then_branch = self.ternary_operator()?;
-            self.consume(TokenType::Colon, "Expect ':' after then branch".to_string())?;
-            let else_branch = self.ternary_operator()?;
-            return Ok(Expr::Conditional(Conditional {
-                condition : Box::new(condition),
-                then_branch : Box::new(then_branch),
-                else_branch : Box::new(else_branch)
-            }));
+        match self.peek().token_type {
+            TokenType::QuestionMark => {
+                self.advance();
+                let then_branch = self.second_level()?;
+                self.consume(TokenType::Colon, "Expect ':' after then branch")?;
+                let else_branch = self.second_level()?;
+                return Ok(Expr::Conditional(Conditional {
+                    condition : Box::new(condition),
+                    then_branch : Box::new(then_branch),
+                    else_branch : Box::new(else_branch)
+                }));
+            }
+            TokenType::Equal => {
+                // * Assigment
+                self.advance();
+                let eq = self.previous();
+                let value = self.second_level()?;
+                match condition {
+                    Expr::Variable(v) => {
+                        let name = v.name;
+                        return Ok(Expr :: Assigment(Assigment {
+                            name : name,
+                            value : Box::new(value)
+                        }))
+                    }
+                    _ => {
+                        return Err(parse_error(&eq, "Invalid assigment target"));
+                    }
+                }
+            }
+            _ => {}
         }
         
         Ok(condition)
@@ -213,10 +333,16 @@ impl Parser {
                 self.advance();
                 let expr = self.expression()?;
 
-                self.consume(TokenType::RightParan, "Expect ')' after expression".to_string())?;
+                self.consume(TokenType::RightParan, "Expect ')' after expression")?;
 
                 Ok(Expr::Grouping(Grouping {
                     expression : Box::new(expr)
+                }))
+            }
+            TokenType::Identifier => {
+                self.advance();
+                Ok (Expr::Variable(Variable {
+                    name : self.previous()
                 }))
             }
             _ => {
@@ -225,13 +351,13 @@ impl Parser {
         }
     }
 
-    fn consume (&mut self, token : TokenType, msg :String ) -> Result<Token, ParseError> {
+    fn consume (&mut self, token : TokenType, msg : &str ) -> Result<Token, ParseError> {
         if self.check(token) { return Ok(self.advance());}
 
         let curr = self.peek();
 
         // parsing error
-        Err(parse_error(&curr, msg.as_str()))
+        Err(parse_error(&curr, msg))
     }
 
     fn synchronise (&mut self) {
