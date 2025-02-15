@@ -6,8 +6,8 @@ pub struct ParseError {
 }
 
 pub struct RuntimeError {
-    token : Token,
-    message : String,
+    pub token : Token,
+    pub message : String,
 }
 
 pub struct ScannerError {
@@ -20,7 +20,6 @@ pub enum LoxError {
     RuntimeError (RuntimeError),
     ScannerError (ScannerError),
 }
-
 
 fn report (line : i32, loc : String, msg : &str) {
     println!("[line {}] Error {}: {}", line, loc, msg);

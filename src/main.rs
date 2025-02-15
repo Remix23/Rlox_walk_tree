@@ -1,15 +1,13 @@
-use std::cell::{RefCell};
 use std::env;
 use std::env::current_dir;
 use std::fs;
 use std::io::Write;
-use std::path::{PathBuf};
-use std::rc::Rc;
+use std::path::PathBuf;
 
-use scanner::{ScanTokens};
+use scanner::ScanTokens;
 
 // relative modules
-use crate::scanner::{Scanner};
+use crate::scanner::Scanner;
 
 pub mod scanner;
 pub mod error_handler;
@@ -19,6 +17,7 @@ pub mod traits;
 pub mod interpreter;
 pub mod stmt;
 pub mod environemnt;
+pub mod loxcallable;
 
 pub mod tests;
 
@@ -39,10 +38,9 @@ impl Lox {
         let mut parser = parser::Parser::new(tokens);
         match parser.parse() {
             Ok(stmts) => {
-
-                self.interpreter.interpret(stmts, self.repl);
+                let _ = self.interpreter.interpret(stmts, self.repl);
             },
-            Err(e) => {
+            Err(_) => {
                 println!("Error parsing expression");
             }
         }
@@ -94,12 +92,10 @@ fn main() {
 
     // create a new Lox instance
 
-    let global_env = environemnt::Environemnt::new(None);
-
     let mut rlox = Lox {
         had_error: false,
         repl: false,
-        interpreter: interpreter::Interpreter::new(Rc::new(RefCell::new(global_env))),
+        interpreter: interpreter::Interpreter::new(),
     };
     
     let n_of_arguments = args.len();

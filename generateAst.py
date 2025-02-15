@@ -31,6 +31,7 @@ def defineAst(outputDir, baseName : str, types : list[str]):
         f.write("\n")
 
 def defineEnum (fileHandler, enumName : str, cases : list[str]) :
+    fileHandler.write(f"#[derive(Debug, Clone)]\n")
     fileHandler.write(f"pub enum {enumName.strip()} {{\n")
     for case in cases:
         case = case.strip()
@@ -38,6 +39,7 @@ def defineEnum (fileHandler, enumName : str, cases : list[str]) :
     fileHandler.write("}\n")
 
 def defineStruct (fileHandelr, structName, fields) :
+    fileHandelr.write(f"#[derive(Debug, Clone)]\n")
     fileHandelr.write(f"pub struct {structName} {{\n")
     for field in fields:
         if field == "": continue
@@ -88,6 +90,7 @@ if __name__ == "__main__" :
 
     smts = [
         "Expression : Expr expression",
+        "Function   : Token name, Vec<Token> params, Vec<Stmt> body",
         "Print      : Expr expression",
         "Var        : Token name, Option<Expr> initializer",
         "Block      : Vec<Stmt> statements",
@@ -95,6 +98,7 @@ if __name__ == "__main__" :
         "Whilee     : Expr condition, Box<Stmt> body, bool is_for",
         "Breakk      : ",
         "Continuee   : ",
+        "Returnn     : Token keyword, Option<Expr> value",
 
     ]
     if len(sys.argv) != 2:

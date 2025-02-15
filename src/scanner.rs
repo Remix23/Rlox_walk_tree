@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 use crate::error_handler::err;
+use crate::loxcallable::Callable;
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,6 +31,7 @@ pub enum LiteralType {
     Number(f64),
     Bool (bool),
     Nil,
+    Callable(Callable),
 }
 
 impl Display for LiteralType {
@@ -39,6 +41,7 @@ impl Display for LiteralType {
             LiteralType::Number(n) => write!(f, "{}", n),
             LiteralType::Bool(b) => write!(f, "{}", b),
             LiteralType::Nil => write!(f, "nil"),
+            LiteralType::Callable(c) => write!(f, "{:?}", c),
         }
     }
 }
@@ -128,7 +131,7 @@ fn scan_token (scanner : &mut Scanner) -> bool {
         '?' => _add_token(scanner, TokenType::QuestionMark),
         '%' => _add_token(scanner, TokenType::Percentage),
 
-        // two chat tokens
+        // two chat tokenss
         '!' => if check_next(scanner, '=') { _add_token(scanner, TokenType::BangEqual) } else { _add_token(scanner, TokenType::Bang) },
         '=' => if check_next(scanner, '=') { _add_token(scanner, TokenType::EqualEqual) } else { _add_token(scanner, TokenType::Equal) },
         '<' => if check_next(scanner, '=') { _add_token(scanner, TokenType::LessEqual) } else { _add_token(scanner, TokenType::Less) },

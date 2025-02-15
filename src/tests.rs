@@ -2,10 +2,6 @@
 
 #[cfg(test)]
 mod test {
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
-    use crate::environemnt;
     use crate::parser::Parser;
     use crate::scanner::{Scanner, ScanTokens};
     use crate::interpreter::Interpreter;
@@ -21,13 +17,12 @@ mod test {
         let mut s = Scanner::new("print 1 + 2;".to_string());
         let tokens = s.scan_tokens();
         let mut parser = Parser::new(tokens);
-        let global = environemnt::Environemnt::new(None);
         match parser.parse() {
             Ok(stmts) => {
-                let mut interpreter = Interpreter::new(Rc::new(RefCell::new(global)));
-                interpreter.interpret(stmts, false);
+                let mut interpreter = Interpreter::new();
+                let _ = interpreter.interpret(stmts, false);
             }
-            Err(e) => {
+            Err(_) => {
                 println!("Error parsing expression");
             }
         }

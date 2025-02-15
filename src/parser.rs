@@ -1,10 +1,10 @@
 
 use std::vec;
 
-use crate::expr::{self, Assigment, Binary, Conditional, Expr, Grouping, Literal, Logical, Unary, Variable, Visitor};
+use crate::expr::{self, Assigment, Binary, Call, Conditional, Expr, Grouping, Literal, Logical, Unary, Variable, Visitor};
 use crate::scanner::{Token, TokenType, LiteralType};
 use crate::{error_handler::*};
-use crate::stmt::{Block, Expression, Iff, Print, Stmt, Var, Whilee, Breakk, Continuee};
+use crate::stmt::{Block, Function, Expression, Iff, Print, Stmt, Var, Whilee, Breakk, Continuee, Returnn};
 
 pub struct Parser {
     tokens : Vec<Token>,
@@ -15,6 +15,11 @@ pub struct Parser {
 pub struct AstPrinter {}
 
 impl Visitor<String> for AstPrinter {
+
+    fn visit_call(&mut self, call : &Call) -> String {
+        todo!()
+    }
+
     fn visit_binary(&mut self, binary : &crate::expr::Binary) -> String {
         return self.parenthesize(&binary.operator.lexeme, vec![&binary.left, &binary.right]);
     }
@@ -87,6 +92,8 @@ impl Parser {
     fn declaration (&mut self) -> Option<Stmt> {
         let stmt = if self.match_token(vec![TokenType::Var]) {
             self.var_declaration()
+        } else if self.match_token(vec![TokenType::Fun]) {
+            self.func_delaration("function")
         } else {
             self.statement()
         };
@@ -100,6 +107,34 @@ impl Parser {
         }
     }
 
+    fn func_delaration (&mut self, kind : &str) -> Result<Stmt, ParseError> {
+        let name = self.consume(TokenType::Identifier, format!("Expect {} name", kind).as_str())?;
+        self.consume(TokenType::LeftParen, format!("Expect '(' after {} name", kind).as_str())?;
+
+        let mut params = vec![];
+
+        if !self.check(TokenType::RightParan) {
+            loop {
+                if params.len() >= 255 {
+                    parse_error(&self.peek(), "Cannot have more than 255 parameters");
+                }
+                
+                params.push(self.consume(TokenType::Identifier, "Expect parameter name")?);
+                if !self.match_token(vec![TokenType::Comma]) {break;}
+            }
+        }
+
+        self.consume(TokenType::RightParan, "Expect ')' after parameters")?;
+        self.consume(TokenType::LeftBrac, "Expect '{' before function body")?;
+
+        let body = self.block()?;
+
+        Ok(Stmt::Function(Function {
+            name : name,
+            params : params,
+            body : body
+        }))   
+    }
     fn var_declaration (&mut self) -> Result<Stmt, ParseError> {
         let token = self.consume(TokenType::Identifier, "Expect a variable name")?;
 
@@ -149,6 +184,10 @@ impl Parser {
                 self.advance();
                 self.continue_statement()
             }
+            TokenType::Return => {
+                self.advance();
+                self.return_statement()
+            }
             _ => {self.expression_statement()}
         }
     }
@@ -158,6 +197,20 @@ impl Parser {
         self.consume(TokenType::Semicolon, "Expect ';' after value")?;
         Ok(Stmt::Print(Print {
             expression : Box::new(value)
+        }))
+    }
+
+    fn return_statement (&mut self) -> Result<Stmt, ParseError> {
+        let keyword = self.previous();
+        let value = if !self.check(TokenType::Semicolon) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(TokenType::Semicolon, "Expect ';' after return value")?;
+        Ok(Stmt::Returnn(Returnn {
+            keyword : keyword,
+            value : value
         }))
     }
 
@@ -448,7 +501,20 @@ impl Parser {
             }))
         }
 
-        self.primary()
+        self.call()
+    }
+
+    fn call (&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.primary()?; // parse the calle
+
+        loop {
+            if self.match_token(vec![TokenType::LeftParen]) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+        return Ok(expr);
     }
 
     fn primary (&mut self) -> Result<Expr, ParseError> {
@@ -560,6 +626,28 @@ impl Parser {
     }
     fn is_at_end (&mut self) -> bool {
         return self.peek().token_type == TokenType::EOF;
+    }
+
+    fn finish_call (&mut self, callee : Expr) -> Result<Expr, ParseError> {
+        let mut args = vec![];
+        if !self.check(TokenType::RightParan) {
+            // collect all arguments
+            loop {
+                if args.len() >= 255 {
+                    parse_error(&self.peek(), "Cannot have more than 255 arguments");
+                }
+                args.push(self.second_level()?);
+                if !self.match_token(vec![TokenType::Comma]) {break;}
+
+            } 
+        }
+
+        let paren = self.consume(TokenType::RightParan, "Expect ')' after arguments")?;
+        Ok(Expr::Call(Call {
+            callee : Box::new(callee),
+            paren : paren,
+            arguments : args
+        }))
     }
     
 }
