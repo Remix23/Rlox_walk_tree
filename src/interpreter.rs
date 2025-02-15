@@ -30,29 +30,23 @@ impl Interpreter {
 
     pub fn interpret (&mut self, stmts : Vec<Stmt>, repl : bool) {
         for stmt in stmts {
-            self.execute(&stmt);
-
+        
             if repl {
                 match stmt {
                     Stmt::Expression(e) => {
                         let val = self.evaluate(&e.expression);
                         self.print_val(&val);
+                        continue;
                     },
                     _ => {}
                 }
             }
+            self.execute(&stmt);
         }
     }
 
     // Helpers:
-    fn is_truthy (&mut self, literal : &LiteralType) -> bool {
-        match literal {
-            LiteralType::Nil => false,
-            LiteralType::String(s) => !s.is_empty(),
-            LiteralType::Number(n) => *n != 0.0,
-            LiteralType::Bool(b) => *b,
-        }
-    }
+
 
     fn is_equal (&mut self, a : &LiteralType, b : &LiteralType) -> bool {
         match (a, b) {
@@ -85,6 +79,15 @@ impl Interpreter {
 
     fn report_run_time_error (&mut self) {
         todo!()
+    }
+}
+
+fn is_truthy (literal : &LiteralType) -> bool {
+    match literal {
+        LiteralType::Nil => false,
+        LiteralType::String(s) => !s.is_empty(),
+        LiteralType::Number(n) => *n != 0.0,
+        LiteralType::Bool(b) => *b,
     }
 }
 
@@ -184,7 +187,7 @@ impl expr::Visitor<LiteralType> for Interpreter {
     fn visit_conditional(&mut self, conditional : &Conditional) -> LiteralType {
         let conditiona = self.evaluate(&conditional.condition);
 
-        if self.is_truthy(&conditiona) {
+        if is_truthy(&conditiona) {
             return self.evaluate(&conditional.then_branch);
         } else {
             return self.evaluate(&conditional.else_branch);
@@ -212,7 +215,7 @@ impl expr::Visitor<LiteralType> for Interpreter {
                 }
             },
             TokenType::Bang => {
-                LiteralType::Bool(!self.is_truthy(&right))
+                LiteralType::Bool(!is_truthy(&right))
             },
             _ => {unreachable!()}
         }
@@ -234,6 +237,25 @@ impl expr::Visitor<LiteralType> for Interpreter {
         let name = &assigment.name.lexeme;
         self.environment.borrow_mut().assign(name.clone(), value.clone());
         return value;
+    }
+
+    fn visit_logical(&mut self, logical : &expr::Logical) -> LiteralType {
+        let left = self.evaluate(&logical.left);
+
+        match logical.operator.token_type {
+            TokenType::Or => {
+                if is_truthy(&left) {
+                    return left;
+                }
+            },
+            TokenType::And => {
+                if !is_truthy(&left) {
+                    return left;
+                }
+            },
+            _ => {unreachable!()}
+        }
+        return self.evaluate(&logical.right);
     }
 }
 
@@ -260,5 +282,24 @@ impl stmt::Visitor<()> for Interpreter {
         let environment = Environemnt::new(Some(self.environment.clone()));
 
         self.execute_block(stmts, environment);
+    }
+
+    fn visit_iff(&mut self, iff : &stmt::Iff) -> () {
+        let condition = self.evaluate(&iff.condition);
+        if is_truthy(&condition) {
+            self.execute(&iff.then_branch);
+        } else {
+            if let Some (else_branch) = &iff.else_branch {
+                self.execute(&else_branch);
+            }     
+        }
+    }
+    fn visit_whilee(&mut self, whilee : &stmt::Whilee) -> () {
+
+        let condition = &whilee.condition;
+
+        while is_truthy(& self.evaluate(condition)) {
+            self.execute(&whilee.body);
+        }
     }
 }

@@ -15,6 +15,7 @@ def defineAst(outputDir, baseName : str, types : list[str]):
     print(p)
 
     with open(p, "x") as f:
+        if baseName == "Stmt": f.write("use crate::expr::Expr;\n")
         f.write("use crate::scanner::{Token, LiteralType};\n")
     
         defineEnum(f, baseName, [t.split(":")[0] for t in types])
@@ -72,6 +73,7 @@ def defineAccept (fileHander, forType : str, types : list[str]) :
 if __name__ == "__main__" :
     exprs = [
         "Binary   : Expr left, Token operator, Expr right",
+        "Logical  : Expr left, Token operator, Expr right",
         "Grouping : Expr expression",
         "Literal  : LiteralType value",
         "Unary    : Token operator, Expr right",
@@ -85,6 +87,9 @@ if __name__ == "__main__" :
         "Print      : Expr expression",
         "Var        : Token name, Option<Expr> initializer",
         "Block      : Vec<Stmt> statements",
+        "Iff         : Expr condition, Box<Stmt> then_branch, Option<Box<Stmt>> else_branch",
+        "Whilee     : Expr condition, Box<Stmt> body",
+        
     ]
     if len(sys.argv) != 2:
         print("Usage: generateAst <output directory>")

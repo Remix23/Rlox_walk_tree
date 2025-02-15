@@ -39,6 +39,7 @@ impl Lox {
         let mut parser = parser::Parser::new(tokens);
         match parser.parse() {
             Ok(stmts) => {
+
                 self.interpreter.interpret(stmts, self.repl);
             },
             Err(e) => {
