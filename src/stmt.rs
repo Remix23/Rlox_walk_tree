@@ -1,5 +1,5 @@
 use crate::expr::Expr;
-use crate::scanner::Token;
+use crate::scanner::{Token, LiteralType};
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Expression (Expression),
@@ -50,9 +50,11 @@ pub struct Whilee {
 }
 #[derive(Debug, Clone)]
 pub struct Breakk {
+    pub keyword : Token,
 }
 #[derive(Debug, Clone)]
 pub struct Continuee {
+    pub keyword : Token,
 }
 #[derive(Debug, Clone)]
 pub struct Returnn {

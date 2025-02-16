@@ -17,6 +17,7 @@ def defineAst(outputDir, baseName : str, types : list[str]):
     with open(p, "x") as f:
         if baseName == "Stmt": f.write("use crate::expr::Expr;\n")
         f.write("use crate::scanner::{Token, LiteralType};\n")
+        if baseName == "Expr": f.write("use std::hash::Hash;\n")
     
         defineEnum(f, baseName, [t.split(":")[0] for t in types])
 
@@ -27,6 +28,11 @@ def defineAst(outputDir, baseName : str, types : list[str]):
 
         defineVistorTrait(f, [t.split(":")[0] for t in types])
         defineAccept(f, baseName, [t.split(":")[0] for t in types])
+
+        if baseName == "Expr":
+            define_hash(f, baseName)
+            define_partial_eq(f, baseName)
+            define_eq(f, baseName)
 
         f.write("\n")
 
@@ -51,6 +57,9 @@ def defineStruct (fileHandelr, structName, fields) :
         
         ### construct struct fields
         fileHandelr.write(f"    pub {name_of_field} : {type_of_field},\n")
+    
+    # add uuid field
+    if structName == "Expr": fileHandelr.write(f"    pub uuid : usize\n")
 
     fileHandelr.write("}\n")
 
@@ -71,7 +80,37 @@ def defineAccept (fileHander, forType : str, types : list[str]) :
         fileHander.write(f"            {forType}::{typeName} ({typeName.lower()}) => visitor.visit_{typeName.lower()}({typeName.lower()}),\n")
     fileHander.write("          }\n")
     fileHander.write("      }\n")
+    
+    if forType == "Expr": 
+
+        fileHander.write(f"    pub fn get_uuid(&self) -> usize {{\n")
+        fileHander.write(f"        match self {{\n")
+        for t in types:
+            typeName = t.split(":")[0].strip()
+            fileHander.write(f"            {forType}::{typeName} (e) => e.uuid,\n")
+        fileHander.write("          }\n")
+        fileHander.write("      }\n")
     fileHander.write("}\n")
+
+
+
+def define_hash (fileHandler, forType : str) :
+    fileHandler.write(f"impl Hash for {forType} {{\n")
+    fileHandler.write(f"    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {{\n")
+    fileHandler.write(f"        self.get_uuid().hash(state);\n")
+    fileHandler.write(f"    }}\n")
+    fileHandler.write(f"}}\n")
+
+def define_partial_eq (fileHandler, forType : str) :
+    fileHandler.write(f"impl PartialEq for {forType} {{\n")
+    fileHandler.write(f"    fn eq(&self, other: &Self) -> bool {{\n")
+    fileHandler.write(f"        self.get_uuid() == other.get_uuid()\n")
+    fileHandler.write(f"    }}\n")
+    fileHandler.write(f"}}\n")
+
+def define_eq (fileHandler, forType : str) :
+    fileHandler.write(f"impl Eq for {forType} {{\n")
+    fileHandler.write(f"}}\n")
 
 if __name__ == "__main__" :
     exprs = [
@@ -96,8 +135,8 @@ if __name__ == "__main__" :
         "Block      : Vec<Stmt> statements",
         "Iff         : Expr condition, Box<Stmt> then_branch, Option<Box<Stmt>> else_branch",
         "Whilee     : Expr condition, Box<Stmt> body, bool is_for",
-        "Breakk      : ",
-        "Continuee   : ",
+        "Breakk      : Token keyword",
+        "Continuee   : Token keyword",
         "Returnn     : Token keyword, Option<Expr> value",
 
     ]

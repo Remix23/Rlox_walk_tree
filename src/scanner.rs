@@ -2,7 +2,7 @@ use::std::fmt::Display;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
-use crate::error_handler::err;
+use crate::error_handler::{err, ScannerError};
 use crate::loxcallable::Callable;
 
 
@@ -292,18 +292,17 @@ fn identifier (scanner : &mut Scanner) {
     } 
 }
 
-pub trait ScanTokens {
-    fn scan_tokens(&mut self) -> Vec<Token>;
-}
-
-impl ScanTokens for Scanner {
-    fn scan_tokens(&mut self) -> Vec<Token> {
+impl Scanner {
+    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, ScannerError> {
         while !is_at_end(self) {
             self.start = self.current;
-            scan_token(self);
+            match scan_token(self) {
+                true => return Err(ScannerError{line: self.line, message: "Error scanning token".to_string()}),
+                false => {},
+            }
         }
         let eof = Token{token_type: TokenType::EOF, lexeme: "".to_string(), literal: LiteralType::Nil, line: self.line};
         self.tokens.push(eof);
-        return self.tokens.clone();
+        return Ok(self.tokens.clone());
     }
 }

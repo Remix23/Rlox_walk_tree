@@ -1,4 +1,5 @@
 use crate::scanner::{Token, LiteralType};
+use std::hash::Hash;
 #[derive(Debug, Clone)]
 pub enum Expr {
     Binary (Binary),
@@ -16,46 +17,55 @@ pub struct Binary {
     pub left : Box<Expr>,
     pub operator : Token,
     pub right : Box<Expr>,
+    pub uuid : usize
 }
 #[derive(Debug, Clone)]
 pub struct Logical {
     pub left : Box<Expr>,
     pub operator : Token,
     pub right : Box<Expr>,
+    pub uuid : usize
 }
 #[derive(Debug, Clone)]
 pub struct Call {
     pub callee : Box<Expr>,
     pub paren : Token,
     pub arguments : Vec<Expr>,
+    pub uuid : usize
 }
 #[derive(Debug, Clone)]
 pub struct Grouping {
     pub expression : Box<Expr>,
+    pub uuid : usize
 }
 #[derive(Debug, Clone)]
 pub struct Literal {
     pub value : LiteralType,
+    pub uuid : usize
 }
 #[derive(Debug, Clone)]
 pub struct Unary {
     pub operator : Token,
     pub right : Box<Expr>,
+    pub uuid : usize
 }
 #[derive(Debug, Clone)]
 pub struct Conditional {
     pub condition : Box<Expr>,
     pub then_branch : Box<Expr>,
     pub else_branch : Box<Expr>,
+    pub uuid : usize
 }
 #[derive(Debug, Clone)]
 pub struct Variable {
     pub name : Token,
+    pub uuid : usize
 }
 #[derive(Debug, Clone)]
 pub struct Assigment {
     pub name : Token,
     pub value : Box<Expr>,
+    pub uuid : usize
 }
 pub trait Visitor<T> {
     fn visit_binary(&mut self, binary : &Binary) -> T;
@@ -82,5 +92,30 @@ impl Expr {
             Expr::Assigment (assigment) => visitor.visit_assigment(assigment),
           }
       }
+    pub fn get_uuid(&self) -> usize {
+        match self {
+            Expr::Binary (e) => e.uuid,
+            Expr::Logical (e) => e.uuid,
+            Expr::Call (e) => e.uuid,
+            Expr::Grouping (e) => e.uuid,
+            Expr::Literal (e) => e.uuid,
+            Expr::Unary (e) => e.uuid,
+            Expr::Conditional (e) => e.uuid,
+            Expr::Variable (e) => e.uuid,
+            Expr::Assigment (e) => e.uuid,
+          }
+      }
+}
+impl Hash for Expr {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.get_uuid().hash(state);
+    }
+}
+impl PartialEq for Expr {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_uuid() == other.get_uuid()
+    }
+}
+impl Eq for Expr {
 }
 

@@ -12,6 +12,15 @@ pub struct Parser {
     errors : Vec<ParseError>,
 }
 
+static mut UUID : usize = 0;
+
+pub fn next_uuid () -> usize {
+    unsafe {
+        UUID += 1;
+        return UUID;
+    }
+}
+
 pub struct AstPrinter {}
 
 impl Visitor<String> for AstPrinter {
@@ -280,7 +289,8 @@ impl Parser {
             self.expression()?
         } else {
             expr::Expr::Literal(Literal {
-                value : LiteralType::Bool(true)
+                value : LiteralType::Bool(true),
+                uuid : next_uuid()
             })
         };
         self.consume(TokenType::Semicolon, "Expect ';' after loop condition")?;
@@ -329,12 +339,16 @@ impl Parser {
 
     fn break_statement (&mut self) -> Result<Stmt, ParseError> {
         self.consume(TokenType::Semicolon, "Expect ';' after break")?;
-        Ok(Stmt::Breakk(Breakk {}))
+        Ok(Stmt::Breakk(Breakk {
+            keyword : self.previous()
+        }))
     }
 
     fn continue_statement (&mut self) -> Result<Stmt, ParseError> {
         self.consume(TokenType::Semicolon, "Expect ';' after continue")?;
-        Ok(Stmt::Continuee(Continuee {}))
+        Ok(Stmt::Continuee(Continuee {
+            keyword : self.previous()
+        }))
     }
 
     fn expression (&mut self) -> Result<Expr, ParseError> {
@@ -352,7 +366,8 @@ impl Parser {
             expr = Expr::Binary(Binary {
                 left : Box::new(expr),
                 operator : operator,
-                right : Box::new(right)
+                right : Box::new(right),
+                uuid : next_uuid()
             });
         }
         Ok(expr)
@@ -370,7 +385,8 @@ impl Parser {
                 return Ok(Expr::Conditional(Conditional {
                     condition : Box::new(condition),
                     then_branch : Box::new(then_branch),
-                    else_branch : Box::new(else_branch)
+                    else_branch : Box::new(else_branch),
+                    uuid : next_uuid()
                 }));
             }
             TokenType::Equal => {
@@ -383,7 +399,8 @@ impl Parser {
                         let name = v.name;
                         return Ok(Expr :: Assigment(Assigment {
                             name : name,
-                            value : Box::new(value)
+                            value : Box::new(value),
+                            uuid : next_uuid()
                         }))
                     }
                     _ => {
@@ -407,7 +424,8 @@ impl Parser {
             expr = Expr::Logical(Logical {
                 left : Box::new(expr),
                 operator : operator,
-                right : Box::new(right)
+                right : Box::new(right),
+                uuid : next_uuid()
             })
         }
         return Ok(expr);
@@ -421,7 +439,8 @@ impl Parser {
             expr = Expr::Logical(Logical {
                 left : Box::new(expr),
                 operator : operator,
-                right : Box::new(right)
+                right : Box::new(right),
+                uuid : next_uuid()
             })
         }
 
@@ -437,7 +456,8 @@ impl Parser {
             expr = Expr::Binary(Binary {
                 left : Box::new(expr),
                 operator : operator, 
-                right : Box::new(right)
+                right : Box::new(right),
+                uuid : next_uuid()
             });
         }
         return Ok(expr);
@@ -453,7 +473,8 @@ impl Parser {
             expr = Expr::Binary(Binary {
                 left : Box::new(expr), 
                 operator : operator,
-                right : Box::new(right)
+                right : Box::new(right),
+                uuid : next_uuid()
             })
         }
 
@@ -469,7 +490,8 @@ impl Parser {
             expr = Expr::Binary (Binary {
                 left : Box::new(expr),
                 operator : operator,
-                right : Box::new(right)
+                right : Box::new(right),
+                uuid : next_uuid()
             })
         }
         return Ok(expr);
@@ -484,7 +506,8 @@ impl Parser {
             expr = Expr::Binary (Binary {
                 left : Box::new(expr),
                 operator : operator,
-                right : Box::new(right)
+                right : Box::new(right),
+                uuid : next_uuid()
             })
         }
 
@@ -497,7 +520,8 @@ impl Parser {
             let right = self.unary()?;
             return Ok(Expr::Unary(Unary {
                 operator : operator,
-                right : Box::new(right)
+                right : Box::new(right),
+                uuid : next_uuid()
             }))
         }
 
@@ -522,31 +546,36 @@ impl Parser {
             TokenType::False => {
                 self.advance();
                 Ok(Expr::Literal(Literal {
-                    value : LiteralType::Bool(false)
+                    value : LiteralType::Bool(false),
+                    uuid : next_uuid()
                 }))
             }
             TokenType::True => {
                 self.advance();
                 Ok(Expr::Literal(Literal {
-                    value : LiteralType::Bool(true)
+                    value : LiteralType::Bool(true),
+                    uuid : next_uuid()
                 }))
             }
             TokenType::Nil => {
                 self.advance();
                 Ok(Expr::Literal(Literal {
-                    value : LiteralType::Nil
+                    value : LiteralType::Nil,
+                    uuid : next_uuid()
                 }))
             }
             TokenType::Number => {
                 self.advance();
                 Ok(Expr::Literal(Literal {
-                    value : self.previous().literal.clone()
+                    value : self.previous().literal.clone(),
+                    uuid : next_uuid()
                 }))
             }
             TokenType::String => {
                 self.advance();
                 Ok(Expr::Literal(Literal {
-                    value : LiteralType::String(self.previous().literal.to_string())
+                    value : LiteralType::String(self.previous().literal.to_string()),
+                    uuid : next_uuid()
                 }))
             }
             TokenType::LeftParen => {
@@ -556,13 +585,15 @@ impl Parser {
                 self.consume(TokenType::RightParan, "Expect ')' after expression")?;
 
                 Ok(Expr::Grouping(Grouping {
-                    expression : Box::new(expr)
+                    expression : Box::new(expr),
+                    uuid : next_uuid()
                 }))
             }
             TokenType::Identifier => {
                 self.advance();
                 Ok (Expr::Variable(Variable {
-                    name : self.previous()
+                    name : self.previous(),
+                    uuid : next_uuid()
                 }))
             }
             _ => {
@@ -646,7 +677,8 @@ impl Parser {
         Ok(Expr::Call(Call {
             callee : Box::new(callee),
             paren : paren,
-            arguments : args
+            arguments : args,
+            uuid : next_uuid()
         }))
     }
     

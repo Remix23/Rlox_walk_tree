@@ -58,7 +58,7 @@ impl LoxCallable for LoxFunction {
                         return Ok(v.clone())
                     },
                     _ => {
-                        panic!("Error executing function");
+                        dbg!(&e);
                         return Err(e)
                     }
                 }

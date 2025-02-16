@@ -12,8 +12,13 @@ pub struct RuntimeError {
 }
 
 pub struct ScannerError {
-    line : i32,
-    message : String,
+    pub line : i32,
+    pub message : String,
+}
+
+pub struct ResolverError {
+    pub line : i32,
+    pub message : String,
 }
 
 pub enum LoxError {

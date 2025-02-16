@@ -1,12 +1,13 @@
 
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::HashMap;
 
-use crate::error_handler::RuntimeError;
-use crate::scanner::TokenType;
+use crate::scanner::{Token, TokenType};
 use crate::{expr, scanner::LiteralType, stmt};
-use crate::expr::{Binary, Conditional, Expr, Grouping, Literal, Unary};
+use crate::expr::{Binary, Conditional, Expr, Grouping, Literal, Unary, Variable};
 use crate::stmt::{Expression, Print, Stmt};
+use crate::error_handler::{err, RuntimeError};
 use crate::environemnt::Environemnt;
 use crate::loxcallable::{LoxCallable, Callable, LoxFunction, NativeFunction};
 // TODO: Add runtime error handling
@@ -17,6 +18,7 @@ use crate::loxcallable::{LoxCallable, Callable, LoxFunction, NativeFunction};
 pub struct Interpreter {
     pub environment : Rc<RefCell<Environemnt>>,
     pub globals : Rc<RefCell<Environemnt>>,
+    pub locals : HashMap<Expr, usize>,
     loop_break : bool,
     loop_continue : bool,
     in_loop : bool,
@@ -38,9 +40,14 @@ impl Interpreter {
             loop_break : false,
             loop_continue : false,
             in_loop : false,
+            locals : HashMap::new(),
         };
         i.define_global_funcs();
         i
+    }
+
+    pub fn resolve (&mut self, expr : &Expr, depth : usize){
+        self.locals.insert(expr.clone(), depth);
     }
 
     fn define_global_funcs (&mut self) {
@@ -133,7 +140,7 @@ impl Interpreter {
                             return res;
                         },
                         _ => {
-                            self.report_run_time_error();
+                            dbg!(e);
                             return res;
                         }
                     }
@@ -148,6 +155,30 @@ impl Interpreter {
         Ok(())
     }
 
+    fn look_up_variable (&mut self, name : Token, expr : &Expr) -> Result<LiteralType, Exit> {
+        let distance = self.locals.get(expr);
+
+        match distance {
+            Some (d) => {
+                Ok(self.environment.borrow_mut().get_at(*d as i32, name.lexeme).unwrap())
+            },
+            None => {
+                //get at global scope
+                match self.globals.borrow_mut().get_at(0, name.lexeme.clone()) {
+                    Some (val) => {
+                        return Ok(val.clone());
+                    },
+                    None => {
+                        return Err(Exit::RuntimeError(RuntimeError {
+                            token : name.clone(),
+                            message : format!("Undefined variable '{}'", name.lexeme.clone())
+                        }));
+                    }
+                }
+            }
+        }
+
+    }
     fn report_run_time_error (&mut self) {
         todo!()
     }
@@ -367,23 +398,22 @@ impl expr::Visitor<Result<LiteralType, Exit>> for Interpreter {
     }
 
     fn visit_variable(&mut self, variable : &expr::Variable) -> Result<LiteralType, Exit> {
-        let name = &variable.name.lexeme;
-        match self.environment.borrow_mut().get(name.clone()) {
-            Some(value) => Ok(value.clone()),
-            None => {
-                // TODO: Report error for undefined variable
-                println!("Undefined variable '{}'", name);
-                Err(Exit::RuntimeError(RuntimeError {
-                    token : variable.name.clone(),
-                    message : format!("Undefined variable '{}'", name)
-                }))
-            }
-        }
+        return self.look_up_variable(variable.name.clone(), &Expr::Variable(variable.clone()))
     }
     fn visit_assigment(&mut self, assigment : &expr::Assigment) -> Result<LiteralType, Exit> {
         let value = self.evaluate(&assigment.value)?;
         let name = &assigment.name.lexeme;
-        self.environment.borrow_mut().assign(name.clone(), value.clone());
+
+        let distance = self.locals.get(&Expr::Assigment(assigment.clone()));
+        match distance {
+            Some (d) => {
+                self.environment.borrow_mut().assign_at(*d as i32, name.clone(), value.clone())
+            },
+            None => {
+                self.globals.borrow_mut().assign_at(0, name.clone(), value.clone())
+            }
+        };
+
         Ok(value)
     }
 

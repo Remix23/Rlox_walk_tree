@@ -1,14 +1,20 @@
-fun makeCounter () {
-  var i = 0;
-  fun count () {
-    i = i + 1;
-    print i;
+fun counterProd () {
+  var a = 0;
+
+  fun counter () {
+    a = a + 1;
+    print a;
   }
-  return count;
+  return counter;
 }
 
-var c = makeCounter();
-c();
-c();
-c();
-c();
+var counter =  counterProd();
+
+counter();
+counter();
+counter();
+counter();
+counter();
+counter();
+counter();
+counter();

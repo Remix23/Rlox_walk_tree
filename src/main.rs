@@ -4,8 +4,6 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 
-use scanner::ScanTokens;
-
 // relative modules
 use crate::scanner::Scanner;
 
@@ -18,6 +16,7 @@ pub mod interpreter;
 pub mod stmt;
 pub mod environemnt;
 pub mod loxcallable;
+pub mod resolver;
 
 pub mod tests;
 
@@ -35,15 +34,23 @@ impl Lox {
         let mut s = Scanner::new(s);
         let tokens = s.scan_tokens();
 
-        let mut parser = parser::Parser::new(tokens);
-        match parser.parse() {
-            Ok(stmts) => {
-                let _ = self.interpreter.interpret(stmts, self.repl);
-            },
-            Err(_) => {
-                println!("Error parsing expression");
+        if let Ok(tokens) = tokens {
+
+            let mut parser = parser::Parser::new(tokens);
+            match parser.parse() {
+                Ok(stmts) => {
+                    let mut resolver = resolver::Resolver::new(&mut self.interpreter);
+                    
+                    resolver.resolve(&stmts) ;
+                    if resolver.had_error() {return;}
+
+                    let _ = self.interpreter.interpret(stmts, self.repl);
+                },
+                Err(_) => {
+                    println!("Error parsing expression");
+                }
             }
-        }
+        } 
     }
     
     fn run_file(&mut self, file_name: PathBuf) {
