@@ -1,6 +1,7 @@
 
 use std::fmt::Debug;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use crate::environemnt::Environemnt;
 use crate::scanner::LiteralType;
@@ -17,6 +18,7 @@ pub enum Callable {
 #[derive(Clone)]
 pub struct LoxFunction {
     pub declaration : Box<Function>,
+    pub closure : Rc<RefCell<Environemnt>>,
 }
 #[derive(Clone)]
 pub struct NativeFunction {
@@ -31,30 +33,32 @@ pub trait LoxCallable {
 }
 
 impl LoxFunction {
-    pub fn new (declaration : Function) -> LoxFunction {
+    pub fn new (declaration : Function, closure : Rc<RefCell<Environemnt>>) -> LoxFunction {
         LoxFunction {
             declaration : Box::new(declaration),
+            closure : closure,
         }
     }
 }
 
 impl LoxCallable for LoxFunction {
     fn call (&self, interpreter : &mut Interpreter, arguments : &Vec<LiteralType>) -> Result<LiteralType, Exit> {
-        let mut env = Environemnt::new(Some(Rc::clone(&interpreter.globals)));
-        
+        let mut env = Environemnt::new(Some(Rc::clone(&self.closure)));
+
         for (i, param) in self.declaration.params.iter().enumerate() {
             env.define(param.lexeme.clone(), arguments[i].clone());
         }
-
         let res = interpreter.execute_block(&self.declaration.body,  env, false);
+
         match res {
             Ok (_) => Ok(LiteralType::Nil),
             Err(e) => {
                 match e {
                     Exit::Return(v) => {
-                        return Ok(v)
+                        return Ok(v.clone())
                     },
                     _ => {
+                        panic!("Error executing function");
                         return Err(e)
                     }
                 }

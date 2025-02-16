@@ -5,6 +5,7 @@ pub struct ParseError {
     pub message : String,
 }
 
+#[derive(Debug)]
 pub struct RuntimeError {
     pub token : Token,
     pub message : String,

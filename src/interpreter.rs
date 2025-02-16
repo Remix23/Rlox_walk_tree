@@ -10,6 +10,10 @@ use crate::stmt::{Expression, Print, Stmt};
 use crate::environemnt::Environemnt;
 use crate::loxcallable::{LoxCallable, Callable, LoxFunction, NativeFunction};
 // TODO: Add runtime error handling
+
+// TODO: Implement the following:
+// * Anonymus functions
+
 pub struct Interpreter {
     pub environment : Rc<RefCell<Environemnt>>,
     pub globals : Rc<RefCell<Environemnt>>,
@@ -17,7 +21,7 @@ pub struct Interpreter {
     loop_continue : bool,
     in_loop : bool,
 }
-
+#[derive(Debug)]
 pub enum Exit {
     Return (LiteralType),
     RuntimeError (RuntimeError)
@@ -102,6 +106,7 @@ impl Interpreter {
             LiteralType::Nil => println!("nil"),
             _ => {
                 // TODO: print for lox callables
+                println!("{:?}", value);
             }
         }
     }
@@ -110,13 +115,36 @@ impl Interpreter {
         let previous = Rc::clone(&self.environment);
 
         self.environment = Rc::new(RefCell::new(environment));
+
+        // println!("Entering");
+        // dbg!(&self.environment);
+
         for stmt in statements {
             if is_loop && (self.loop_break || self.loop_continue) {
                 break;
             }
-            self.execute(stmt)?;
+            let res = self.execute(stmt);
+            match &res {
+                Ok (_) => {},
+                Err(e) => {
+                    self.environment = previous;
+                    match e {
+                        Exit::Return(_) => {
+                            return res;
+                        },
+                        _ => {
+                            self.report_run_time_error();
+                            return res;
+                        }
+                    }
+                }
+            }
+
         }
         self.environment = previous;
+
+        // println!("Exiting");
+        // dbg!(&self.environment);
         Ok(())
     }
 
@@ -431,7 +459,6 @@ impl stmt::Visitor<Result<(), Exit>> for Interpreter {
     fn visit_block(&mut self, block : &stmt::Block) -> Result<(), Exit> {
         let stmts = &block.statements;
         let environment = Environemnt::new(Some(self.environment.clone()));
-
         self.execute_block(stmts, environment, self.in_loop)?;
         Ok(())
     }
@@ -478,7 +505,7 @@ impl stmt::Visitor<Result<(), Exit>> for Interpreter {
     }
 
     fn visit_function(&mut self, function : &stmt::Function) -> Result<(), Exit> {
-        let f = Callable::LoxFunction(LoxFunction::new(function.clone()));
+        let f = Callable::LoxFunction(LoxFunction::new(function.clone(), Rc::clone(&self.environment)));
         self.environment.borrow_mut().define(function.name.lexeme.clone(), LiteralType::Callable(f));
         Ok(())
     }

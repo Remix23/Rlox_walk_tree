@@ -4,8 +4,9 @@ use std::rc::Rc;
 use crate::scanner::LiteralType;
 
 
+#[derive(Debug, Clone)]
 pub struct Environemnt {
-    values : HashMap<String, LiteralType>,
+    pub values : HashMap<String, LiteralType>,
     pub previous : Option<Rc<RefCell<Environemnt>>>,
 }
 
