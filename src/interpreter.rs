@@ -571,7 +571,7 @@ impl stmt::Visitor<Result<(), Exit>> for Interpreter {
     }
 
     fn visit_function(&mut self, function : &stmt::Function) -> Result<(), Exit> {
-        let f = Callable::LoxFunction(LoxFunction::new(function.clone(), Rc::clone(&self.environment)));
+        let f = Callable::LoxFunction(LoxFunction::new(function.clone(), Rc::clone(&self.environment), false));
         self.environment.borrow_mut().define(function.name.lexeme.clone(), LiteralType::Callable(f));
         Ok(())
     }
@@ -583,7 +583,8 @@ impl stmt::Visitor<Result<(), Exit>> for Interpreter {
         for method in &class.methods {
             let func = LoxFunction::new (
                 method.clone(),
-                Rc::clone(&self.environment)
+                Rc::clone(&self.environment),
+                method.name.lexeme == "init"
             );
             map.insert(method.name.lexeme.clone(), func);
         }

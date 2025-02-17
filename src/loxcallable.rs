@@ -24,6 +24,7 @@ pub enum Callable {
 pub struct LoxFunction {
     pub declaration : Box<Function>,
     pub closure : Rc<RefCell<Environemnt>>,
+    pub is_initializer : bool,
 }
 #[derive(Debug, Clone)]
 pub struct LoxCLass {
@@ -50,10 +51,11 @@ pub trait LoxCallable {
 }
 
 impl LoxFunction {
-    pub fn new (declaration : Function, closure : Rc<RefCell<Environemnt>>) -> LoxFunction {
+    pub fn new (declaration : Function, closure : Rc<RefCell<Environemnt>>, is_init : bool) -> LoxFunction {
         LoxFunction {
             declaration : Box::new(declaration),
             closure : closure,
+            is_initializer : is_init,
         }
     }
 
@@ -68,7 +70,8 @@ impl LoxFunction {
 
         LoxFunction {
             declaration : self.declaration.clone(),
-            closure : env
+            closure : env,
+            is_initializer : self.is_initializer,
         }
     }
 }
@@ -83,10 +86,19 @@ impl LoxCallable for LoxFunction {
         let res = interpreter.execute_block(&self.declaration.body,  env, false);
 
         match res {
-            Ok (_) => Ok(LiteralType::Nil),
+            Ok (_) => Ok(
+                if self.is_initializer {
+                    self.closure.borrow_mut().get_at(0, "this".to_string()).unwrap()
+                } else {
+                    LiteralType::Nil
+                }
+            ),
             Err(e) => {
                 match e {
                     Exit::Return(v) => {
+                        if self.is_initializer {
+                            return Ok(self.closure.borrow_mut().get_at(0, "this".to_string()).unwrap())
+                        }
                         return Ok(v.clone())
                     },
                     _ => {

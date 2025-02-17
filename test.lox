@@ -1,7 +1,9 @@
 class Foo {
   init () {
+    return;
     print this;
   }
 }
 
 var foo = Foo();
+print foo;

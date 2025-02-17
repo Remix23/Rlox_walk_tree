@@ -21,6 +21,7 @@ enum FunctionType {
     Func,
     Method,
     None,
+    INITIALIZER,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ClassType {
@@ -246,7 +247,11 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
         self.scopes.last_mut().unwrap().insert("this".to_string(), true);
 
         for method in class.methods.iter() {
-            let decl = FunctionType::Method;
+            let decl = if method.name.lexeme == "init" {
+                FunctionType::INITIALIZER
+            } else {
+                FunctionType::Method   
+            };
             self.resolve_function(method, decl);
         }
 
@@ -281,6 +286,7 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
         }
         
         if let Some (value) = &returnn.value {
+            err(returnn.keyword.line, "Cannot return a value from an initializer");
             self.resolve_expr(value);
         }
         
