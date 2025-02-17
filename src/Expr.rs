@@ -5,6 +5,9 @@ pub enum Expr {
     Binary (Binary),
     Logical (Logical),
     Call (Call),
+    Get (Get),
+    Set (Set),
+    This (This),
     Grouping (Grouping),
     Literal (Literal),
     Unary (Unary),
@@ -31,6 +34,24 @@ pub struct Call {
     pub callee : Box<Expr>,
     pub paren : Token,
     pub arguments : Vec<Expr>,
+    pub uuid : usize
+}
+#[derive(Debug, Clone)]
+pub struct Get {
+    pub object : Box<Expr>,
+    pub name : Token,
+    pub uuid : usize
+}
+#[derive(Debug, Clone)]
+pub struct Set {
+    pub object : Box<Expr>,
+    pub name : Token,
+    pub value : Box<Expr>,
+    pub uuid : usize
+}
+#[derive(Debug, Clone)]
+pub struct This {
+    pub keyword : Token,
     pub uuid : usize
 }
 #[derive(Debug, Clone)]
@@ -71,6 +92,9 @@ pub trait Visitor<T> {
     fn visit_binary(&mut self, binary : &Binary) -> T;
     fn visit_logical(&mut self, logical : &Logical) -> T;
     fn visit_call(&mut self, call : &Call) -> T;
+    fn visit_get(&mut self, get : &Get) -> T;
+    fn visit_set(&mut self, set : &Set) -> T;
+    fn visit_this(&mut self, this : &This) -> T;
     fn visit_grouping(&mut self, grouping : &Grouping) -> T;
     fn visit_literal(&mut self, literal : &Literal) -> T;
     fn visit_unary(&mut self, unary : &Unary) -> T;
@@ -84,6 +108,9 @@ impl Expr {
             Expr::Binary (binary) => visitor.visit_binary(binary),
             Expr::Logical (logical) => visitor.visit_logical(logical),
             Expr::Call (call) => visitor.visit_call(call),
+            Expr::Get (get) => visitor.visit_get(get),
+            Expr::Set (set) => visitor.visit_set(set),
+            Expr::This (this) => visitor.visit_this(this),
             Expr::Grouping (grouping) => visitor.visit_grouping(grouping),
             Expr::Literal (literal) => visitor.visit_literal(literal),
             Expr::Unary (unary) => visitor.visit_unary(unary),
@@ -97,6 +124,9 @@ impl Expr {
             Expr::Binary (e) => e.uuid,
             Expr::Logical (e) => e.uuid,
             Expr::Call (e) => e.uuid,
+            Expr::Get (e) => e.uuid,
+            Expr::Set (e) => e.uuid,
+            Expr::This (e) => e.uuid,
             Expr::Grouping (e) => e.uuid,
             Expr::Literal (e) => e.uuid,
             Expr::Unary (e) => e.uuid,

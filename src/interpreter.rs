@@ -9,7 +9,7 @@ use crate::expr::{Binary, Conditional, Expr, Grouping, Literal, Unary, Variable}
 use crate::stmt::{Expression, Print, Stmt};
 use crate::error_handler::{err, RuntimeError};
 use crate::environemnt::Environemnt;
-use crate::loxcallable::{LoxCallable, Callable, LoxFunction, NativeFunction};
+use crate::loxcallable::{Callable, LoxCLass, LoxCallable, LoxFunction, NativeFunction};
 // TODO: Add runtime error handling
 
 // TODO: Implement the following:
@@ -111,9 +111,9 @@ impl Interpreter {
             LiteralType::Number(n) => println!("{}", n),
             LiteralType::Bool(b) => println!("{}", b),
             LiteralType::Nil => println!("nil"),
-            _ => {
+            LiteralType::Callable(c) => {
                 // TODO: print for lox callables
-                println!("{:?}", value);
+                println!("{}", c);
             }
         }
     }
@@ -140,7 +140,6 @@ impl Interpreter {
                             return res;
                         },
                         _ => {
-                            dbg!(e);
                             return res;
                         }
                     }
@@ -158,6 +157,7 @@ impl Interpreter {
     fn look_up_variable (&mut self, name : Token, expr : &Expr) -> Result<LiteralType, Exit> {
         let distance = self.locals.get(expr);
 
+        
         match distance {
             Some (d) => {
                 Ok(self.environment.borrow_mut().get_at(*d as i32, name.lexeme).unwrap())
@@ -443,7 +443,7 @@ impl expr::Visitor<Result<LiteralType, Exit>> for Interpreter {
             args.push(self.evaluate(arg)?);
         }
 
-        if let LiteralType::Callable(Callable::LoxFunction(function)) = callee {
+        if let LiteralType::Callable(Callable::LoxFunction(mut function)) = callee {
             if args.len() as i32 != function.arity() {
                 // TODO: Report error for invalid number of arguments
                 println!("Expected {} arguments but got {}", function.arity(), args.len());
@@ -452,8 +452,10 @@ impl expr::Visitor<Result<LiteralType, Exit>> for Interpreter {
                     message : format!("Expected {} arguments but got {}", function.arity(), args.len())
                 }));
             }   
-            function.call(self, &args)
-        } else {
+            return function.call(self, &args)
+        } else if let LiteralType::Callable(Callable::LoxCLass(mut class)) = callee {
+            return class.call(self, &args)
+        } {
             Err(Exit::RuntimeError(
                 RuntimeError {
                     token : call.paren.clone(),
@@ -461,6 +463,40 @@ impl expr::Visitor<Result<LiteralType, Exit>> for Interpreter {
                 }
             ))
         }
+    }
+
+    fn visit_get(&mut self, get : &expr::Get) -> Result<LiteralType, Exit> {
+        let object = self.evaluate(&get.object)?;
+        if let LiteralType::Callable(Callable::LoxInstance(instance)) = object {
+            return instance.borrow().get(&get.name);
+        }
+        Err(Exit::RuntimeError(
+            RuntimeError {
+                token : get.name.clone(),
+                message : "Only instances have properties".to_string()
+            }
+        ))
+    }
+
+    fn visit_set(&mut self, set : &expr::Set) -> Result<LiteralType, Exit> {
+        let object = self.evaluate(&set.object)?;
+
+        if let LiteralType::Callable(Callable::LoxInstance(instance)) = object {
+            let value = self.evaluate(&set.value)?;
+            instance.borrow_mut().set(&set.name, value.clone());
+
+            dbg!(instance);
+            return Ok(value);
+        }
+
+        Err(Exit::RuntimeError(RuntimeError {
+            token : set.name.clone(),
+            message : "Only instances have fields".to_string()
+        }))
+    }
+
+    fn visit_this(&mut self, this : &expr::This) -> Result<LiteralType, Exit> {
+        self.look_up_variable(this.keyword.clone(), &Expr::This(this.clone()))
     }
 }
 
@@ -539,6 +575,28 @@ impl stmt::Visitor<Result<(), Exit>> for Interpreter {
         self.environment.borrow_mut().define(function.name.lexeme.clone(), LiteralType::Callable(f));
         Ok(())
     }
+
+    fn visit_class(&mut self, class : &stmt::Class) -> Result<(), Exit> {
+        self.environment.borrow_mut().define(class.name.lexeme.to_string(), LiteralType::Nil);
+
+        let mut map = HashMap::new();
+        for method in &class.methods {
+            let func = LoxFunction::new (
+                method.clone(),
+                Rc::clone(&self.environment)
+            );
+            map.insert(method.name.lexeme.clone(), func);
+        }
+
+        let clas = LoxCLass {
+            name : class.name.lexeme.clone(),
+            methods : map.clone(),
+        };
+
+        self.environment.borrow_mut().assign_at(0, clas.name.clone(),LiteralType::Callable(Callable::LoxCLass(clas)));
+        Ok(())
+    }
+
     fn visit_returnn(&mut self, returnn : &stmt::Returnn) -> Result<(), Exit> {
         let value = match &returnn.value {
             Some (expr) => self.evaluate(expr)?,
@@ -546,4 +604,5 @@ impl stmt::Visitor<Result<(), Exit>> for Interpreter {
         };
         Err(Exit::Return(value))
     }
+
 }

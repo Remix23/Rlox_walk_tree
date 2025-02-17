@@ -19,8 +19,15 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FunctionType {
     Func,
+    Method,
     None,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ClassType {
+    Class,
+    None,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LoopType {
     Loop,
@@ -32,6 +39,7 @@ pub struct Resolver<'a> {
     interpreter : &'a mut Interpreter,
     current_function : FunctionType,
     current_loop : LoopType,
+    current_class : ClassType,
 
     had_error: bool,
 }
@@ -44,6 +52,7 @@ impl<'a> Resolver<'a> {
             interpreter : interpreter,
             current_function : FunctionType::None,
             current_loop : LoopType::None,
+            current_class : ClassType::None,
             had_error: false,
         }
     }
@@ -120,7 +129,16 @@ impl<'a> Resolver<'a> {
 }
 
 impl<'a> ExprVisitor <()> for Resolver<'a> {
-    
+
+    fn visit_this(&mut self, this : &crate::expr::This) -> () {
+        if self.current_class == ClassType::None {
+            err(this.keyword.line, "Cannot use 'this' outside of a class");
+            self.had_error = true;
+            return;
+        }
+        self.resolve_local(&Expr::This(this.clone()), &this.keyword);
+    }
+
     fn visit_variable(&mut self, variable : &crate::expr::Variable) -> () {
         
         if let Some (scope) = self.scopes.last() {
@@ -132,7 +150,6 @@ impl<'a> ExprVisitor <()> for Resolver<'a> {
             }
         }
         self.resolve_local(&Expr::Variable(variable.clone()), &variable.name);
-        
     }
 
     fn visit_assigment(&mut self, assigment : &crate::expr::Assigment) -> () {
@@ -166,6 +183,15 @@ impl<'a> ExprVisitor <()> for Resolver<'a> {
             self.resolve_expr(arg);
         }
         
+    }
+
+    fn visit_get(&mut self, get : &crate::expr::Get) -> () {
+        self.resolve_expr(&get.object);
+    }
+
+    fn visit_set(&mut self, set : &crate::expr::Set) -> () {
+        self.resolve_expr(&set.object);
+        self.resolve_expr(&set.value);
     }
 
     fn visit_grouping(&mut self, grouping : &crate::expr::Grouping) -> () {
@@ -206,7 +232,26 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
         self.define(&function.name);
 
         self.resolve_function(function, FunctionType::Func);
-        
+    }
+
+    fn visit_class(&mut self, class : &stmt::Class) -> () {
+
+        let enclosing_class = self.current_class;
+        self.current_class = ClassType::Class;
+
+        self.declare(&class.name);
+        self.define(&class.name);
+
+        self.begin_scope();
+        self.scopes.last_mut().unwrap().insert("this".to_string(), true);
+
+        for method in class.methods.iter() {
+            let decl = FunctionType::Method;
+            self.resolve_function(method, decl);
+        }
+
+        self.end_scope();
+        self.current_class = enclosing_class;
     }
 
     fn visit_expression(&mut self, expression : &stmt::Expression) -> () {

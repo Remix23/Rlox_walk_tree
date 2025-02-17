@@ -35,7 +35,7 @@ pub fn err (line : i32, msg : &str) -> bool {
     report(line,  "".to_string(), msg);
     // TODO: Rewrite the 
     return true;
-}  
+}
 
 pub fn parse_error (token : &Token, msg : &str) -> ParseError{
     if token.token_type == TokenType::EOF {

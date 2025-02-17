@@ -24,7 +24,7 @@ def defineAst(outputDir, baseName : str, types : list[str]):
         for t in types:
             structName, fields = [x.strip() for x in t.split(":")]
 
-            defineStruct(f, structName, fields.split(","))
+            defineStruct(f, baseName, structName, fields.split(","))
 
         defineVistorTrait(f, [t.split(":")[0] for t in types])
         defineAccept(f, baseName, [t.split(":")[0] for t in types])
@@ -44,7 +44,7 @@ def defineEnum (fileHandler, enumName : str, cases : list[str]) :
         fileHandler.write(f"    {case} ({case}),\n")
     fileHandler.write("}\n")
 
-def defineStruct (fileHandelr, structName, fields) :
+def defineStruct (fileHandelr, base_class, structName, fields) :
     fileHandelr.write(f"#[derive(Debug, Clone)]\n")
     fileHandelr.write(f"pub struct {structName} {{\n")
     for field in fields:
@@ -59,7 +59,7 @@ def defineStruct (fileHandelr, structName, fields) :
         fileHandelr.write(f"    pub {name_of_field} : {type_of_field},\n")
     
     # add uuid field
-    if structName == "Expr": fileHandelr.write(f"    pub uuid : usize\n")
+    if base_class == "Expr": fileHandelr.write(f"    pub uuid : usize\n")
 
     fileHandelr.write("}\n")
 
@@ -117,6 +117,9 @@ if __name__ == "__main__" :
         "Binary   : Expr left, Token operator, Expr right",
         "Logical  : Expr left, Token operator, Expr right",
         "Call     : Expr callee, Token paren, Vec<Expr> arguments",
+        "Get      : Expr object, Token name",
+        "Set      : Expr object, Token name, Expr value",
+        "This     : Token keyword", 
         "Grouping : Expr expression",
         "Literal  : LiteralType value",
         "Unary    : Token operator, Expr right",
@@ -138,6 +141,7 @@ if __name__ == "__main__" :
         "Breakk      : Token keyword",
         "Continuee   : Token keyword",
         "Returnn     : Token keyword, Option<Expr> value",
+        "Class       : Token name, Vec<Function> methods"
 
     ]
     if len(sys.argv) != 2:
@@ -145,4 +149,4 @@ if __name__ == "__main__" :
         sys.exit(64)
 
     outputDir = sys.argv[1]
-    defineAst(outputDir, "Stmt", smts)
+    defineAst(outputDir, "Expr", exprs)

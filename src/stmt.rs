@@ -12,6 +12,7 @@ pub enum Stmt {
     Breakk (Breakk),
     Continuee (Continuee),
     Returnn (Returnn),
+    Class (Class),
 }
 #[derive(Debug, Clone)]
 pub struct Expression {
@@ -61,6 +62,11 @@ pub struct Returnn {
     pub keyword : Token,
     pub value : Option<Expr>,
 }
+#[derive(Debug, Clone)]
+pub struct Class {
+    pub name : Token,
+    pub methods : Vec<Function>,
+}
 pub trait Visitor<T> {
     fn visit_expression(&mut self, expression : &Expression) -> T;
     fn visit_function(&mut self, function : &Function) -> T;
@@ -72,6 +78,7 @@ pub trait Visitor<T> {
     fn visit_breakk(&mut self, breakk : &Breakk) -> T;
     fn visit_continuee(&mut self, continuee : &Continuee) -> T;
     fn visit_returnn(&mut self, returnn : &Returnn) -> T;
+    fn visit_class(&mut self, class : &Class) -> T;
 }
 impl Stmt {
     pub fn accept<T>(&self, visitor : &mut dyn Visitor<T>) -> T {
@@ -86,6 +93,7 @@ impl Stmt {
             Stmt::Breakk (breakk) => visitor.visit_breakk(breakk),
             Stmt::Continuee (continuee) => visitor.visit_continuee(continuee),
             Stmt::Returnn (returnn) => visitor.visit_returnn(returnn),
+            Stmt::Class (class) => visitor.visit_class(class),
           }
       }
 }

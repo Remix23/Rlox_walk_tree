@@ -4,6 +4,8 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 
+use error_handler::err;
+
 // relative modules
 use crate::scanner::Scanner;
 
@@ -43,8 +45,20 @@ impl Lox {
                     
                     resolver.resolve(&stmts) ;
                     if resolver.had_error() {return;}
-
-                    let _ = self.interpreter.interpret(stmts, self.repl);
+                    match self.interpreter.interpret(stmts, self.repl) {
+                        Ok(_) => {},
+                        Err(e) => {
+                            match e {
+                                interpreter::Exit::Return(val) => {
+                                    print!("{}", val);
+                                },
+                                interpreter::Exit::RuntimeError(e) => {
+                                    err(e.token.line, &e.message);
+                                
+                            }
+                        }
+                    }
+                    }
                 },
                 Err(_) => {
                     println!("Error parsing expression");
