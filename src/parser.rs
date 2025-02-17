@@ -164,13 +164,19 @@ impl Parser {
 
         let mut methods = vec![];
         while !self.check(TokenType::RightBrace) && !self.is_at_end() {
-           let function = self.func_delaration("method")?;
 
-            match function {
-                Stmt::Function(f) => {
-                    methods.push(f);
-                }
-                _ => {}
+            // Static methods: "class" <fun name> "(" <params> ")" "{" <body> "}"
+            let func_sig = if self.check(TokenType::Class) {
+                self.advance();
+                "static method"
+            } else {
+                "method"
+            };
+
+           let function = self.func_delaration(func_sig)?;
+
+            if let Stmt::Function(f) = function {
+                methods.push(f);
             }
         }
         self.consume(TokenType::RightBrace, "Expected '}' after function declaration")?;

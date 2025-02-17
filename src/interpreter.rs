@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use crate::scanner::{Token, TokenType};
 use crate::{expr, scanner::LiteralType, stmt};
-use crate::expr::{Binary, Conditional, Expr, Grouping, Literal, Unary, Variable};
+use crate::expr::{Binary, Call, Conditional, Expr, Grouping, Literal, Unary, Variable};
 use crate::stmt::{Expression, Print, Stmt};
 use crate::error_handler::{err, RuntimeError};
 use crate::environemnt::Environemnt;
@@ -443,17 +443,22 @@ impl expr::Visitor<Result<LiteralType, Exit>> for Interpreter {
             args.push(self.evaluate(arg)?);
         }
 
-        if let LiteralType::Callable(Callable::LoxFunction(mut function)) = callee {
+        if let LiteralType::Callable(Callable::LoxFunction(function)) = callee {
             if args.len() as i32 != function.arity() {
                 // TODO: Report error for invalid number of arguments
-                println!("Expected {} arguments but got {}", function.arity(), args.len());
                 return Err(Exit::RuntimeError(RuntimeError {
                     token : call.paren.clone(),
                     message : format!("Expected {} arguments but got {}", function.arity(), args.len())
                 }));
             }   
             return function.call(self, &args)
-        } else if let LiteralType::Callable(Callable::LoxCLass(mut class)) = callee {
+        } else if let LiteralType::Callable(Callable::LoxCLass(class)) = callee {
+            if args.len() as i32 != class.arity() {
+                return Err(Exit::RuntimeError(RuntimeError {
+                    token : call.paren.clone(),
+                    message : format!("Expected {} arguments but got {}", class.arity(), args.len())
+                }));
+            }
             return class.call(self, &args)
         } {
             Err(Exit::RuntimeError(
@@ -467,8 +472,24 @@ impl expr::Visitor<Result<LiteralType, Exit>> for Interpreter {
 
     fn visit_get(&mut self, get : &expr::Get) -> Result<LiteralType, Exit> {
         let object = self.evaluate(&get.object)?;
-        if let LiteralType::Callable(Callable::LoxInstance(instance)) = object {
-            return instance.borrow().get(&get.name);
+        if let LiteralType::Callable(c) = object {
+            match c {
+                Callable::LoxInstance(instance) => {
+                    return instance.borrow().get(&get.name);
+                }
+                Callable::LoxCLass(class ) => {
+                    let func = class.find_method(get.name.lexeme.clone());
+                    if let Some (f) = func {
+                        return Ok (LiteralType::Callable(Callable::LoxFunction(f.clone())))
+                    } else {
+                        return Err ( Exit::RuntimeError(RuntimeError {
+                            token : get.name.clone(),
+                            message : format!("Undefined static methods '{}' on class <{}>", get.name.lexeme, class.name, )
+                        }))
+                    }
+                }
+                _ => {}
+            }
         }
         Err(Exit::RuntimeError(
             RuntimeError {

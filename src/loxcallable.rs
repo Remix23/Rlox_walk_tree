@@ -30,7 +30,6 @@ pub struct LoxFunction {
 pub struct LoxCLass {
     pub name : String,
     pub methods : HashMap<String, LoxFunction>,
-
 }
 
 #[derive(Debug, Clone)]

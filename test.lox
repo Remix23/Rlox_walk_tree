@@ -1,9 +1,12 @@
-class Foo {
-  init () {
-    return;
-    print this;
+class Math {
+  class square(n) {
+    return n * n;
+  }
+
+  init (n) {
+    print Math.square(n);
   }
 }
 
-var foo = Foo();
-print foo;
+print Math.square (10);
+Math(3);

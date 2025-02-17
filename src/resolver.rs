@@ -286,10 +286,15 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
         }
         
         if let Some (value) = &returnn.value {
-            err(returnn.keyword.line, "Cannot return a value from an initializer");
+        
+            if self.current_class == ClassType::Class && self.current_function == FunctionType::INITIALIZER {
+                err(returnn.keyword.line, "Cannot return a value from an initializer");
+                self.had_error = true;
+
+            }
+
             self.resolve_expr(value);
         }
-        
     }
 
     fn visit_breakk(&mut self, breakk : &stmt::Breakk) -> () {
