@@ -1,7 +1,7 @@
 
 use std::vec;
 
-use crate::expr::{self, Assigment, Binary, Call, Conditional, Expr, Get, Grouping, Literal, Logical, Set, This, Unary, Variable, Visitor};
+use crate::expr::{self, Assigment, Binary, Call, Conditional, Expr, Get, Grouping, Literal, Logical, Set, Superr, This, Unary, Variable, Visitor};
 use crate::scanner::{Token, TokenType, LiteralType};
 use crate::{error_handler::*};
 use crate::stmt::{Block, Breakk, Class, Continuee, Expression, Function, Iff, Print, Returnn, Stmt, Var, Whilee};
@@ -24,6 +24,10 @@ pub fn next_uuid () -> usize {
 pub struct AstPrinter {}
 
 impl Visitor<String> for AstPrinter {
+
+    fn visit_superr(&mut self, superr : &expr::Superr) -> String {
+        todo!()
+    }
 
     fn visit_call(&mut self, call : &Call) -> String {
         todo!()
@@ -671,6 +675,17 @@ impl Parser {
                 self.advance();
                 Ok(Expr::This(This {
                     keyword : self.previous(),
+                    uuid : next_uuid()
+                }))
+            },
+            TokenType::Super => {
+                self.advance();
+                let keyword = self.previous();
+                self.consume(TokenType::Dot, "Expect '.' after 'super'")?;
+                let method = self.consume(TokenType::Identifier, "Expect superclass method name")?;
+                Ok (Expr::Superr(Superr {
+                    keyword : keyword,
+                    method : method,
                     uuid : next_uuid()
                 }))
             }

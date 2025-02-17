@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 use std::env::var;
+use std::thread::scope;
 
 use crate::error_handler::err;
 use crate::scanner::{Token, LiteralType};
@@ -28,6 +29,7 @@ enum FunctionType {
 enum ClassType {
     Class,
     None,
+    SUBCLASS,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -141,6 +143,19 @@ impl<'a> ExprVisitor <()> for Resolver<'a> {
         self.resolve_local(&Expr::This(this.clone()), &this.keyword);
     }
 
+    fn visit_superr(&mut self, superr : &crate::expr::Superr) -> () {
+        
+        if self.current_class == ClassType::None {
+            err(superr.keyword.line, "Cannot use 'super' outside of a class");
+            self.had_error = true;
+        } else if self.current_class != ClassType::SUBCLASS {
+            err(superr.keyword.line, "Cannot use 'super' in a class with no superclass");
+            self.had_error = true;
+        }
+
+        self.resolve_local(&Expr::Superr(superr.clone()), &superr.keyword);
+    }
+
     fn visit_variable(&mut self, variable : &crate::expr::Variable) -> () {
         
         if let Some (scope) = self.scopes.last() {
@@ -246,12 +261,18 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
 
         if let Some (Expr::Variable(sup)) = &class.SuperClass{
 
+            self.current_class = ClassType::SUBCLASS;
+
             if sup.name.lexeme == class.name.lexeme {
                 err(sup.name.line, "A class cannot inherit from itself");
                 self.had_error = true;
             }
 
             self.resolve_expr(&class.SuperClass.as_ref().unwrap());
+
+            self.begin_scope();
+
+            self.scopes.last_mut().unwrap().insert("super".to_string(), true);
         }
 
         self.begin_scope();
@@ -267,6 +288,11 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
         }
 
         self.end_scope();
+
+        if class.SuperClass.is_some() {
+            self.end_scope();
+        }
+
         self.current_class = enclosing_class;
     }
 
@@ -330,7 +356,6 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
         self.current_loop = LoopType::Loop;
         self.resolve_stmt(whilee.body.as_ref());
 
-        self.current_loop = LoopType::None;
-        
+        self.current_loop = LoopType::None;   
     }
 }

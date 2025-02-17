@@ -119,6 +119,7 @@ if __name__ == "__main__" :
         "Call     : Expr callee, Token paren, Vec<Expr> arguments",
         "Get      : Expr object, Token name",
         "Set      : Expr object, Token name, Expr value",
+        "Superr    : Token keyword, Token method",
         "This     : Token keyword", 
         "Grouping : Expr expression",
         "Literal  : LiteralType value",
@@ -149,4 +150,4 @@ if __name__ == "__main__" :
         sys.exit(64)
 
     outputDir = sys.argv[1]
-    defineAst(outputDir, "Stmt", smts)
+    defineAst(outputDir, "Expr", exprs)

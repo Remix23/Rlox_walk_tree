@@ -7,6 +7,7 @@ pub enum Expr {
     Call (Call),
     Get (Get),
     Set (Set),
+    Superr (Superr),
     This (This),
     Grouping (Grouping),
     Literal (Literal),
@@ -47,6 +48,12 @@ pub struct Set {
     pub object : Box<Expr>,
     pub name : Token,
     pub value : Box<Expr>,
+    pub uuid : usize
+}
+#[derive(Debug, Clone)]
+pub struct Superr {
+    pub keyword : Token,
+    pub method : Token,
     pub uuid : usize
 }
 #[derive(Debug, Clone)]
@@ -94,6 +101,7 @@ pub trait Visitor<T> {
     fn visit_call(&mut self, call : &Call) -> T;
     fn visit_get(&mut self, get : &Get) -> T;
     fn visit_set(&mut self, set : &Set) -> T;
+    fn visit_superr(&mut self, superr : &Superr) -> T;
     fn visit_this(&mut self, this : &This) -> T;
     fn visit_grouping(&mut self, grouping : &Grouping) -> T;
     fn visit_literal(&mut self, literal : &Literal) -> T;
@@ -110,6 +118,7 @@ impl Expr {
             Expr::Call (call) => visitor.visit_call(call),
             Expr::Get (get) => visitor.visit_get(get),
             Expr::Set (set) => visitor.visit_set(set),
+            Expr::Superr (superr) => visitor.visit_superr(superr),
             Expr::This (this) => visitor.visit_this(this),
             Expr::Grouping (grouping) => visitor.visit_grouping(grouping),
             Expr::Literal (literal) => visitor.visit_literal(literal),
@@ -126,6 +135,7 @@ impl Expr {
             Expr::Call (e) => e.uuid,
             Expr::Get (e) => e.uuid,
             Expr::Set (e) => e.uuid,
+            Expr::Superr (e) => e.uuid,
             Expr::This (e) => e.uuid,
             Expr::Grouping (e) => e.uuid,
             Expr::Literal (e) => e.uuid,

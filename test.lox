@@ -1,9 +1,20 @@
-class Doughnut {
-  cook() {
-    print "Fry until golden brown.";
+class Cake {
+  taste() {
+    print this.flavor;
   }
 }
 
-class BostonCream < Doughnut {}
+var cake = Cake();
+cake.flavor = "chocolate";
 
-BostonCream().cook();
+var method = cake.taste;
+cake.taste();
+method();
+
+cake.flavor = "vanilla";
+cake.taste();
+method();
+
+cake.flavor = "strawberry";
+cake.taste();
+method();

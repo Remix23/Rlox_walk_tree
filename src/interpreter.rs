@@ -499,6 +499,42 @@ impl expr::Visitor<Result<LiteralType, Exit>> for Interpreter {
         ))
     }
 
+    fn visit_superr(&mut self, superr : &expr::Superr) -> Result<LiteralType, Exit> {
+        let distance = self.locals.get(&Expr::Superr(superr.clone()));
+
+        if distance.is_none() {
+            return Err(Exit::RuntimeError(RuntimeError {
+                token : superr.method.clone(),
+                message : "Undefined variable".to_string()
+            }));
+        }
+
+        let sup = self.environment.borrow_mut().get_at(*distance.unwrap() as i32, "super".to_string()).unwrap();
+
+        let object = self.environment.borrow_mut().get_at(*distance.unwrap() as i32 - 1, "this".to_string()).unwrap();
+
+        if let LiteralType::Callable(Callable::LoxCLass(c)) = sup {
+            if let LiteralType::Callable(Callable::LoxInstance(instance)) = object {
+                let method = c.find_method(superr.method.lexeme.clone());
+                if let Some (m) = method {
+                    let func = m.bind(instance);
+                    return Ok(LiteralType::Callable(Callable::LoxFunction(func)));
+                } else {
+                    return Err(Exit::RuntimeError(RuntimeError {
+                        token : superr.method.clone(),
+                        message : "Undefined property".to_string()
+                    }));
+                }
+            }
+        
+        }
+        return Err(Exit::RuntimeError(RuntimeError {
+            token : superr.method.clone(),
+            message : "Undefined property".to_string()
+        }));
+    }
+    
+
     fn visit_set(&mut self, set : &expr::Set) -> Result<LiteralType, Exit> {
         let object = self.evaluate(&set.object)?;
 
@@ -506,7 +542,6 @@ impl expr::Visitor<Result<LiteralType, Exit>> for Interpreter {
             let value = self.evaluate(&set.value)?;
             instance.borrow_mut().set(&set.name, value.clone());
 
-            dbg!(instance);
             return Ok(value);
         }
 
@@ -599,25 +634,28 @@ impl stmt::Visitor<Result<(), Exit>> for Interpreter {
 
     fn visit_class(&mut self, class : &stmt::Class) -> Result<(), Exit> {
         
-        let super_class = match &class.SuperClass {
-            Some (sup) => {
-                let eval_class = self.evaluate(sup)?;
-                if let LiteralType::Callable(Callable::LoxCLass(sup_class)) = eval_class {
-                    Some(Box::new(sup_class))
-                } else {
-                    return Err(Exit::RuntimeError(RuntimeError {
-                        token : class.name.clone(),
-                        message : "Superclass must be a class".to_string()
-                    }));
-                }
-            },
-            None => {
-                None
+        let mut eval_class = LiteralType::Nil;
+        let mut s_c: Option<LoxCLass> = None;
+
+        if let Some (sc) = &class.SuperClass {
+            eval_class = self.evaluate(sc)?;
+            if let LiteralType::Callable(Callable::LoxCLass(c)) = &eval_class {
+                s_c = Some(c.clone());
+            } else {
+                return Err(Exit::RuntimeError(RuntimeError {
+                    token : class.name.clone(),
+                    message : "Superclass must be a class".to_string()
+                }));
             }
-        };
-        
-        
+        }
+
         self.environment.borrow_mut().define(class.name.lexeme.to_string(), LiteralType::Nil);
+
+        if class.SuperClass.is_some() {
+            self.environment = Rc::new(RefCell::new(Environemnt::new(Some(Rc::clone(&self.environment)))));
+            self.environment.borrow_mut().
+                define("super".to_string(), eval_class);
+        }
 
         let mut map = HashMap::new();
         for method in &class.methods {
@@ -631,9 +669,14 @@ impl stmt::Visitor<Result<(), Exit>> for Interpreter {
 
         let clas = LoxCLass {
             name : class.name.lexeme.clone(),
-            methods : map.clone(),
-            super_class : super_class,
+            methods : map,
+            super_class : s_c.map(Box::new),
         };
+
+        if class.SuperClass.is_some() {
+            let prev = Rc::clone(self.environment.borrow_mut().previous.as_ref().unwrap());
+            self.environment = prev;
+        }
 
         self.environment.borrow_mut().assign_at(0, clas.name.clone(),LiteralType::Callable(Callable::LoxCLass(clas)));
         Ok(())
