@@ -141,7 +141,7 @@ if __name__ == "__main__" :
         "Breakk      : Token keyword",
         "Continuee   : Token keyword",
         "Returnn     : Token keyword, Option<Expr> value",
-        "Class       : Token name, Vec<Function> methods"
+        "Class       : Token name, Option<Expr> SuperClass, Vec<Function> methods"
 
     ]
     if len(sys.argv) != 2:
@@ -149,4 +149,4 @@ if __name__ == "__main__" :
         sys.exit(64)
 
     outputDir = sys.argv[1]
-    defineAst(outputDir, "Expr", exprs)
+    defineAst(outputDir, "Stmt", smts)

@@ -65,6 +65,7 @@ pub struct Returnn {
 #[derive(Debug, Clone)]
 pub struct Class {
     pub name : Token,
+    pub SuperClass : Option<Expr>,
     pub methods : Vec<Function>,
 }
 pub trait Visitor<T> {

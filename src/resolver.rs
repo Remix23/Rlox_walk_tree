@@ -3,6 +3,7 @@
 // ? we know how resolve it
 
 use std::collections::HashMap;
+use std::env::var;
 
 use crate::error_handler::err;
 use crate::scanner::{Token, LiteralType};
@@ -242,6 +243,16 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
 
         self.declare(&class.name);
         self.define(&class.name);
+
+        if let Some (Expr::Variable(sup)) = &class.SuperClass{
+
+            if sup.name.lexeme == class.name.lexeme {
+                err(sup.name.line, "A class cannot inherit from itself");
+                self.had_error = true;
+            }
+
+            self.resolve_expr(&class.SuperClass.as_ref().unwrap());
+        }
 
         self.begin_scope();
         self.scopes.last_mut().unwrap().insert("this".to_string(), true);

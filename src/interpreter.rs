@@ -598,6 +598,25 @@ impl stmt::Visitor<Result<(), Exit>> for Interpreter {
     }
 
     fn visit_class(&mut self, class : &stmt::Class) -> Result<(), Exit> {
+        
+        let super_class = match &class.SuperClass {
+            Some (sup) => {
+                let eval_class = self.evaluate(sup)?;
+                if let LiteralType::Callable(Callable::LoxCLass(sup_class)) = eval_class {
+                    Some(Box::new(sup_class))
+                } else {
+                    return Err(Exit::RuntimeError(RuntimeError {
+                        token : class.name.clone(),
+                        message : "Superclass must be a class".to_string()
+                    }));
+                }
+            },
+            None => {
+                None
+            }
+        };
+        
+        
         self.environment.borrow_mut().define(class.name.lexeme.to_string(), LiteralType::Nil);
 
         let mut map = HashMap::new();
@@ -613,6 +632,7 @@ impl stmt::Visitor<Result<(), Exit>> for Interpreter {
         let clas = LoxCLass {
             name : class.name.lexeme.clone(),
             methods : map.clone(),
+            super_class : super_class,
         };
 
         self.environment.borrow_mut().assign_at(0, clas.name.clone(),LiteralType::Callable(Callable::LoxCLass(clas)));

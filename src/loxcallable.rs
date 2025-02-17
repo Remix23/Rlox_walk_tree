@@ -30,6 +30,7 @@ pub struct LoxFunction {
 pub struct LoxCLass {
     pub name : String,
     pub methods : HashMap<String, LoxFunction>,
+    pub super_class : Option<Box<LoxCLass>>,
 }
 
 #[derive(Debug, Clone)]
@@ -114,16 +115,19 @@ impl LoxCallable for LoxFunction {
 }
 
 impl LoxCLass {
-    pub fn new (name : String, methods : HashMap<String, LoxFunction>) -> LoxCLass {
-        LoxCLass {
-            name : name,
-            methods : methods,
-        }
-    }
+    // pub fn new (name : String, methods : HashMap<String, LoxFunction>) -> LoxCLass {
+    //     LoxCLass {
+    //         name : name,
+    //         methods : methods,
+    //     }
+    // }
 
     pub fn find_method (&self, name : String) -> Option<&LoxFunction> {
         if self.methods.contains_key(&name) {
             return Some(self.methods.get(&name).unwrap());
+        }
+        if let Some(sup) = &self.super_class {
+            return sup.find_method(name);
         }
         None
     }

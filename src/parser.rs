@@ -160,6 +160,16 @@ impl Parser {
     fn class_declation (&mut self) -> Result<Stmt, ParseError> {
         let name = self.consume(TokenType::Identifier, "Expected an identifier")?;
 
+        let sup_class = if self.match_token(&[TokenType::Less]) {
+            self.consume(TokenType::Identifier, "Expect super class name")?;
+            Some(Expr::Variable(Variable {
+                name : self.previous(),
+                uuid : next_uuid()
+            }))
+        } else {
+            None
+        };
+
         self.consume(TokenType::LeftBrac, "Expected '{' after class declaration")?;
 
         let mut methods = vec![];
@@ -184,6 +194,7 @@ impl Parser {
         Ok(Stmt::Class(Class {
             name : name,
             methods : methods,
+            SuperClass : sup_class
         }))
     }
 
